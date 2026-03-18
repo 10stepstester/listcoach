@@ -1,10 +1,10 @@
 # Project State
 
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-18*
 
 ## Current Status
 
-The app is functional and deployed on Vercel. Core goal tracking, SMS coaching, and the web dashboard are working. There are significant uncommitted changes across 14 files plus 6 new untracked files/directories — this represents the bulk of the app's evolution since the initial commit.
+The app is functional and deployed on Vercel at https://goal-app-five-beta.vercel.app/. All recent work is committed and deployed. The dashboard has two tabs: Raw To-dos (hierarchical, editable list) and Smart List (AI-prioritized flat list). Note: GitHub pushes do NOT auto-trigger Vercel deploys — must run `npx vercel --prod` manually after each push.
 
 ## What's Built
 
@@ -13,35 +13,39 @@ The app is functional and deployed on Vercel. Core goal tracking, SMS coaching, 
 - Basic goal CRUD, subtask management, SMS webhook, cron nudge job
 - Supabase + Twilio + Anthropic + Google Calendar integration
 
-### Recent Work (Uncommitted)
-- **GoalList overhaul** — drag/drop reordering, inline editing, completion animations, fireworks, subtask nesting (~840 lines changed)
-- **MeditationTimer** — rewritten with circular progress, audio chimes, configurable duration
-- **Settings page** — new `/settings` route with full settings UI
-- **PromptEditor** — custom coaching prompt editor with AI refinement endpoint
+### Committed & Deployed (2026-03-18 session)
+- **Smart List tab** — `/api/smart-list` route + `smart_list_items` table; AI prioritizes all raw to-dos into a flat ranked list
+- **Smart List speed** — optimized from 39s → 2.3s: switched to `claude-haiku-4-5`, compact index-only output format, batch DB insert, pre-filter to leaf nodes only
+- **Smart List refresh icon** — small ↻ icon on the Smart List tab (replaces bottom "Reorganize" button); spins while loading
+- **Auto-regenerate** — smart list regenerates automatically on every add/edit/delete/toggle (no manual trigger needed)
+- **Google Keep-style completion** — checked items move below a "Completed (N)" divider with 60% opacity; applied to both Raw and Smart List tabs
+- **Vercel function timeout** — added `maxDuration: 60` for `smart-list` and `cron/check-goals` routes in `vercel.json`
+- **Raw to-dos bulk add** — added 40+ new to-do items across categories: Website, Wellness Directory, Booking System, Openclaw, PF Course, Musclepractor, Other, Personal
+
+### Previously Built (committed)
+- **GoalList overhaul** — drag/drop reordering, inline editing, completion animations, fireworks, subtask nesting
+- **MeditationTimer** — circular progress, audio chimes, configurable duration
+- **Settings page** — `/settings` route with full settings UI
+- **PromptEditor** — custom coaching prompt editor with AI refinement
 - **Nested subtasks** — `parent_id` migration, updated subtask routes
-- **AI subtask summarization** — new `/api/goals/[id]/subtasks/summarize` endpoint
-- **Cron improvements** — Google Calendar free/busy check, timezone-aware active hours, AI SKIP logic, conversation-aware nudges
-- **SMS webhook upgrades** — Claude-powered intent parsing (complete, add, update goals via text)
-- **Claude integration refactor** — template-based prompts with `{{placeholders}}`, custom prompt support
-- **Vercel cron** — changed to daily at 12 PM UTC
-- **User settings** — accent color, dark mode, custom prompt fields added to types
+- **AI subtask summarization** — `/api/goals/[id]/subtasks/summarize`
+- **Cron improvements** — Google Calendar, timezone-aware active hours, AI SKIP logic
+- **SMS webhook** — Claude-powered intent parsing
+- **Vercel cron** — daily at 12 PM UTC
 
 ## What's Next
 
-- **Commit and push** all uncommitted work
-- **Testing** — no test framework configured; consider adding Vitest
+- **Smart List sync** — when raw to-do is deleted, remove it from smart_list_items too
 - **Auth** — no user authentication on the web UI (API uses service role key directly)
-- **Multi-user** — schema supports it, but the web UI is single-user (hardcoded user fetch)
+- **Multi-user** — schema supports it, web UI is single-user (hardcoded user fetch)
+- **Testing** — no test framework configured; consider adding Vitest
 - **Error handling** — API routes have basic try/catch but no structured error responses
-- **Nested subtask UI** — parent_id migration exists but unclear if GoalList fully renders nested children
 
 ## Known Issues
 
-- Large amount of uncommitted work — risk of losing changes
+- GitHub → Vercel auto-deploy webhook not working — must run `npx vercel --prod` after each push
 - No `.env.example` file for onboarding
-- `README.md` is still the default Next.js boilerplate
-- Screenshots and PDF files in project root should probably be in a docs folder or gitignored
-- `DATABASE_PATH` env var in `.env.local` suggests an old SQLite path that may be vestigial
+- `README.md` is still default Next.js boilerplate
 
 ## Schema
 
