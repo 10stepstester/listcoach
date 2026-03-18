@@ -539,8 +539,33 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
     const flatten = (items: SmartListItem[]): SmartListItem[] =>
       items.flatMap((i) => [i, ...flatten(i.children || [])]);
     const flat = flatten(smartItems);
+    const toggled = flat.find((i) => i.id === itemId);
     const updated = flat.map((i) => (i.id === itemId ? { ...i, is_completed: completed } : i));
     setSmartItems(buildSmartTree(updated));
+
+    // Sync to raw subtasks locally so Raw To-dos reflects it immediately
+    if (toggled?.raw_subtask_id) {
+      const rawId = toggled.raw_subtask_id;
+      const childIds = new Set<string>();
+      const collectChildren = (pid: string) => {
+        subtasks.forEach((s) => {
+          if (s.parent_id === pid) {
+            childIds.add(s.id);
+            collectChildren(s.id);
+          }
+        });
+      };
+      collectChildren(rawId);
+
+      setSubtasks((prev) =>
+        prev.map((s) => {
+          if (s.id === rawId || childIds.has(s.id)) {
+            return { ...s, is_completed: completed, completed_at: completed ? new Date().toISOString() : null };
+          }
+          return s;
+        })
+      );
+    }
 
     try {
       await fetch('/api/smart-list', {
@@ -550,6 +575,7 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
       });
     } catch {
       fetchSmartList();
+      fetchGoal();
     }
   };
 

@@ -111,6 +111,21 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
     }
 
+    // Sync completion state back to the raw subtask
+    if (updates.is_completed !== undefined && item.raw_subtask_id) {
+      const completedAt = updates.is_completed ? new Date().toISOString() : null;
+      await supabase
+        .from('subtasks')
+        .update({ is_completed: updates.is_completed, completed_at: completedAt })
+        .eq('id', item.raw_subtask_id);
+
+      // Cascade to children of that subtask
+      await supabase
+        .from('subtasks')
+        .update({ is_completed: updates.is_completed, completed_at: completedAt })
+        .eq('parent_id', item.raw_subtask_id);
+    }
+
     return NextResponse.json({ item });
   } catch (error) {
     console.error('PATCH /api/smart-list error:', error);

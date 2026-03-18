@@ -240,32 +240,34 @@ export async function reorganizeTodos(subtasks: Subtask[]): Promise<ReorganizedI
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1500,
+      max_tokens: 4096,
       system: 'You reorganize to-do lists. Always respond with valid JSON only, no markdown code fences.',
       messages: [{
         role: 'user',
-        content: `Here are someone's raw to-do items. Reorganize them into a prioritized, logical order. Group related items, suggest better ordering, and add brief reasoning for your prioritization.
+        content: `Here are someone's raw to-do items (some are nested under category parents). Flatten and prioritize ALL items into a single ordered list by importance. Do NOT group or nest items — output a flat array sorted by priority.
 
 Raw to-dos:
 ${JSON.stringify(todoList, null, 2)}
 
-Respond with JSON only — an array of items:
+Respond with JSON only — a flat array of ALL leaf-level items (skip category headers), ordered by priority:
 [
   {
-    "raw_subtask_id": "<original id or null if you're suggesting a new grouping>",
+    "raw_subtask_id": "<original id>",
     "title": "<cleaned up title>",
     "priority": 1,
     "reasoning": "<brief reason for this priority, 10 words max>",
-    "children": [<nested items in same format>]
+    "children": []
   }
 ]
 
 Rules:
-- Keep all original items (don't drop any)
+- Include EVERY leaf-level item (ones with actual task content, not category names)
+- Do NOT nest items — flat array only, children always empty
+- Do NOT create new grouping items
 - You may re-title for clarity but preserve the intent
 - Priority 1 = most important/urgent
-- Group related items as children when it makes sense
-- Keep it practical, not over-organized`
+- Order the array by priority (most important first)
+- Keep completed items at the end`
       }],
     });
 
