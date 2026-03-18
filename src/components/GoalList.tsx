@@ -174,7 +174,17 @@ function buildSmartTree(items: SmartListItem[]): SmartListItem[] {
     }
   });
 
-  roots.sort((a, b) => a.position - b.position);
+  const sortNodes = (nodes: SmartListItem[]) => {
+    nodes.sort((a, b) => {
+      // Completed items sink to bottom
+      if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+      return a.position - b.position;
+    });
+    nodes.forEach((n) => {
+      if (n.children && n.children.length > 0) sortNodes(n.children);
+    });
+  };
+  sortNodes(roots);
   return roots;
 }
 
