@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vercel inspect:*)",
+      "Bash(curl:*)",
+      "Bash(npx vercel deploy --prod --yes)",
+      "Bash(npx next:*)",
+      "Bash(npx vercel:*)",
+      "Bash(npx supabase db execute:*)"
+    ]
+  }
+}

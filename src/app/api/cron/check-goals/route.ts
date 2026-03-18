@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
     for (const user of users) {
       try {
-        // Check if current time is within active hours
+        // === HARD CHECK 1: Active hours ===
         const now = new Date();
         const userTime = new Intl.DateTimeFormat('en-US', {
           timeZone: user.timezone,
@@ -40,36 +40,20 @@ export async function GET(request: Request) {
         const [currentHour, currentMinute] = userTime.split(':').map(Number);
         const currentMinutes = currentHour * 60 + currentMinute;
 
-        // active_hours_start and active_hours_end are "HH:MM:SS" strings from Postgres TIME type
         const [startHour, startMinute] = user.active_hours_start.split(':').map(Number);
         const startMinutes = startHour * 60 + startMinute;
 
         const [endHour, endMinute] = user.active_hours_end.split(':').map(Number);
         const endMinutes = endHour * 60 + endMinute;
 
+        console.log(`[Cron] User ${user.id}: timezone=${user.timezone}, userTime=${userTime}, currentMinutes=${currentMinutes}, startMinutes=${startMinutes}, endMinutes=${endMinutes}`);
+
         if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
-          summary.push({ userId: user.id, action: 'skipped_outside_hours' });
+          summary.push({ userId: user.id, action: `skipped_outside_hours (${userTime} not in ${user.active_hours_start}-${user.active_hours_end})` });
           continue;
         }
 
-        // Check for recent activity (last 10 minutes)
-        const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-        const { count: recentCount } = await supabase
-          .from('activity_log')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .gte('timestamp', tenMinutesAgo);
-
-        if ((recentCount ?? 0) > 0) {
-          // 10% chance of sending brief reinforcement
-          if (Math.random() > 0.1) {
-            summary.push({ userId: user.id, action: 'skipped_recent_activity' });
-            continue;
-          }
-          summary.push({ userId: user.id, action: 'reinforcement_sent' });
-        }
-
-        // Check Google Calendar if tokens exist
+        // === HARD CHECK 2: Google Calendar busy ===
         if (user.google_calendar_token && user.google_calendar_refresh_token) {
           try {
             const busy = await hasEventNow(
@@ -83,11 +67,12 @@ export async function GET(request: Request) {
             }
           } catch (calError) {
             console.error(`[Cron] Calendar check failed for user ${user.id}:`, calError);
-            // Continue anyway if calendar check fails
+            summary.push({ userId: user.id, action: 'skipped_calendar_error' });
+            continue;
           }
         }
 
-        // Get goals with subtasks
+        // === Fetch goals with subtasks ===
         const { data: goals } = await supabase
           .from('goals')
           .select('*, subtasks(*)')
@@ -117,7 +102,7 @@ export async function GET(request: Request) {
           }
         }
 
-        // Calculate hours since last activity
+        // === Calculate hours since last activity ===
         const { data: lastActivityRow } = await supabase
           .from('activity_log')
           .select('timestamp')
@@ -126,38 +111,69 @@ export async function GET(request: Request) {
           .limit(1)
           .single();
 
-        let hoursSinceActivity = 24; // Default if no activity
+        let hoursSinceActivity = 24;
         if (lastActivityRow) {
           const lastTime = new Date(lastActivityRow.timestamp).getTime();
           hoursSinceActivity = Math.round((now.getTime() - lastTime) / (1000 * 60 * 60) * 10) / 10;
         }
 
-        // Get recent SMS messages
+        // === Fetch last 20 SMS messages with timestamps in user's timezone ===
         const { data: recentSmsRows } = await supabase
           .from('sms_conversations')
           .select('*')
           .eq('user_id', user.id)
-          .eq('direction', 'outbound')
           .order('sent_at', { ascending: false })
-          .limit(5);
+          .limit(20);
 
-        const recentSMS = (recentSmsRows || []).map((m) => m.message_text);
+        const recentSMS = (recentSmsRows || [])
+          .reverse()
+          .map((m) => {
+            // Format timestamp in user's timezone
+            const msgTime = new Intl.DateTimeFormat('en-US', {
+              timeZone: user.timezone,
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }).format(new Date(m.sent_at));
+            const sender = m.direction === 'inbound' ? 'User' : 'Coach';
+            return `[${msgTime}] ${sender}: ${m.message_text}`;
+          });
+
+        // Format current time in user's timezone
+        const currentTimeFormatted = new Intl.DateTimeFormat('en-US', {
+          timeZone: user.timezone,
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }).format(now);
 
         // Determine time of day label
         let timeOfDay = 'morning';
         if (currentHour >= 12 && currentHour < 17) timeOfDay = 'afternoon';
         else if (currentHour >= 17) timeOfDay = 'evening';
 
-        // Generate nudge via Claude
-        const nudgeText = await generateNudge({
+        // === AI DECIDES: SEND or SKIP ===
+        const result = await generateNudge({
           nudgeStyle: user.nudge_style,
           goals: goalsWithSubtasks,
           firstUncompleted,
           outcomeTarget: user.outcome_target,
           hoursSinceActivity,
           timeOfDay,
+          currentTime: currentTimeFormatted,
           recentSMS,
+          customPrompt: user.custom_prompt,
         });
+
+        // Check if AI decided to skip
+        if (result.toUpperCase().startsWith('SKIP')) {
+          console.log(`[Cron] AI skip for user ${user.id}: ${result}`);
+          summary.push({ userId: user.id, action: `ai_skip: ${result}` });
+          continue;
+        }
+
+        // AI decided to send — result is the nudge text
+        const nudgeText = result;
 
         // Send via Twilio
         await sendSMS(user.phone_number, nudgeText);
@@ -181,7 +197,7 @@ export async function GET(request: Request) {
             goal_id: firstUncompleted ? goals[0]?.id : null,
           });
 
-        summary.push({ userId: user.id, action: 'nudge_sent' });
+        summary.push({ userId: user.id, action: 'nudge_sent', });
       } catch (userError) {
         console.error(`[Cron] Error processing user ${user.id}:`, userError);
         summary.push({ userId: user.id, action: `error: ${(userError as Error).message}` });

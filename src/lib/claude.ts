@@ -1,24 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Goal } from '@/types/index';
+import { DEFAULT_COACHING_PROMPT } from '@/lib/prompts';
 
 const anthropic = new Anthropic();
 
-const COACHING_SYSTEM_PROMPT = `You are a goal-tracking coach that sends SMS nudges to help users stay on track with their goals.
-
-You adapt your coaching style based on the user's preference:
-
-- **Direct**: Be blunt, no-nonsense, and urgent. Use short sentences. Challenge them. Example: "You said you'd do X. It's been 3 hours. What's the holdup?"
-- **Average**: Be friendly but firm. Encourage action with a positive tone. Example: "Hey! Ready to knock out your next step? You've got this."
-- **Gentle**: Be warm, empathetic, and supportive. Acknowledge difficulty. Example: "Just checking in - no pressure. Even a small step forward counts."
-
-Rules:
-- Keep messages under 160 characters when possible (SMS limit)
-- Reference the user's specific goals and subtasks
-- Be aware of time of day and adjust tone accordingly
-- If they've been inactive for a long time, be more direct regardless of style
-- Never be passive-aggressive or guilt-tripping
-- Focus on the NEXT concrete action they can take
-- Reference their outcome target to connect daily tasks to bigger picture`;
+// Re-export so existing imports still work
+export { DEFAULT_COACHING_PROMPT };
 
 interface NudgeContext {
   nudgeStyle: 'direct' | 'average' | 'gentle';
@@ -27,7 +14,9 @@ interface NudgeContext {
   outcomeTarget: string;
   hoursSinceActivity: number;
   timeOfDay: string;
+  currentTime: string;
   recentSMS: string[];
+  customPrompt?: string | null;
 }
 
 export async function generateNudge(context: NudgeContext): Promise<string> {
@@ -40,35 +29,36 @@ export async function generateNudge(context: NudgeContext): Promise<string> {
   }
 
   try {
-    const userMessage = `Generate a coaching nudge SMS for this user.
+    const goalsSummary = context.goals.map((g, i) => {
+      const subtasks = (g.subtasks || []).map(
+        (s) => `  ${s.is_completed ? '[x]' : '[ ]'} ${s.title}`
+      ).join('\n');
+      return `${i + 1}. ${g.title}\n${subtasks || '  (no subtasks)'}`;
+    }).join('\n');
 
-Style: ${context.nudgeStyle}
-Time of day: ${context.timeOfDay}
-Hours since last activity: ${context.hoursSinceActivity}
-Outcome target: ${context.outcomeTarget}
+    const nextTask = context.firstUncompleted
+      ? `"${context.firstUncompleted.subtaskTitle}" under goal "${context.firstUncompleted.goalTitle}"`
+      : 'All subtasks are completed or no subtasks exist.';
 
-Current goals:
-${context.goals.map((g, i) => {
-  const subtasks = (g.subtasks || []).map(
-    (s) => `  ${s.is_completed ? '[x]' : '[ ]'} ${s.title}`
-  ).join('\n');
-  return `${i + 1}. ${g.title}\n${subtasks || '  (no subtasks)'}`;
-}).join('\n')}
+    const recentConversation = context.recentSMS.length > 0 ? context.recentSMS.join('\n') : '(no recent messages)';
 
-${context.firstUncompleted
-  ? `Next uncompleted task: "${context.firstUncompleted.subtaskTitle}" under goal "${context.firstUncompleted.goalTitle}"`
-  : 'All subtasks are completed or no subtasks exist.'}
+    const promptTemplate = context.customPrompt || DEFAULT_COACHING_PROMPT;
 
-Recent messages sent (avoid repeating):
-${context.recentSMS.length > 0 ? context.recentSMS.join('\n') : '(none)'}
-
-Reply with ONLY the SMS message text. Keep it under 160 characters.`;
+    const filledPrompt = promptTemplate
+      .replace(/\{\{nudge_style\}\}/g, context.nudgeStyle)
+      .replace(/\{\{time_of_day\}\}/g, context.timeOfDay)
+      .replace(/\{\{current_time\}\}/g, context.currentTime)
+      .replace(/\{\{hours_since_activity\}\}/g, String(context.hoursSinceActivity))
+      .replace(/\{\{outcome_target\}\}/g, context.outcomeTarget)
+      .replace(/\{\{goals_summary\}\}/g, goalsSummary)
+      .replace(/\{\{next_task\}\}/g, nextTask)
+      .replace(/\{\{recent_conversation\}\}/g, recentConversation);
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 200,
-      system: COACHING_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
+      system: 'You are an SMS coaching assistant. Follow the instructions precisely.',
+      messages: [{ role: 'user', content: filledPrompt }],
     });
 
     const textBlock = response.content.find((block) => block.type === 'text');
@@ -106,7 +96,7 @@ export async function parseSmsReply(context: ParseSmsContext): Promise<ParsedSms
     subtasksToAdd: [],
     subtasksToComplete: [],
     needsClarification: true,
-    coachingReply: "Got it! I'll note that down. What would you like to work on next?",
+    coachingReply: "Got it! I'll check back later.",
   };
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -125,17 +115,17 @@ export async function parseSmsReply(context: ParseSmsContext): Promise<ParsedSms
       })),
     }));
 
-    const userMessage = `Parse this incoming SMS reply from a user and determine their intent.
+    const userMessage = `You're a friend helping someone track goals via text. They just sent you a message. Figure out what they mean and respond naturally.
 
-User's current goals:
+Their goals:
 ${JSON.stringify(goalsContext, null, 2)}
 
 Recent conversation:
 ${context.recentMessages.length > 0 ? context.recentMessages.join('\n') : '(none)'}
 
-Incoming SMS: "${context.incomingSms}"
+Their new message: "${context.incomingSms}"
 
-Respond with a JSON object (and ONLY the JSON, no markdown):
+Respond with JSON only (no markdown):
 {
   "intent": "update_goal" | "add_subtask" | "complete_subtask" | "question" | "other",
   "goalId": "<goal id or null>",
@@ -143,16 +133,10 @@ Respond with a JSON object (and ONLY the JSON, no markdown):
   "subtasksToAdd": ["<subtask titles to add>"],
   "subtasksToComplete": ["<subtask IDs to mark complete>"],
   "needsClarification": true/false,
-  "coachingReply": "<brief coaching response under 160 chars>"
+  "coachingReply": "<your reply as a friend, under 160 chars>"
 }
 
-Guidelines:
-- If they say they "did" or "finished" something, match it to a subtask and use "complete_subtask"
-- If they want to add a new step/task, use "add_subtask"
-- If they want to change a goal name, use "update_goal"
-- If unclear, set needsClarification to true and ask in coachingReply
-- Always include a helpful coachingReply
-- Match goals/subtasks by semantic similarity, not exact text`;
+Read the conversation. Respond to what they actually said. If they finished something, mark it done. If they're busy or unavailable, just acknowledge it — don't push tasks on them.`;
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
@@ -177,6 +161,10 @@ interface CoachingReplyContext {
   goals: Goal[];
   action: string;
   outcomeTarget: string;
+  timeOfDay: string;
+  currentTime: string;
+  recentSMS: string[];
+  hoursSinceActivity: number;
 }
 
 export async function generateCoachingReply(context: CoachingReplyContext): Promise<string> {
@@ -186,13 +174,15 @@ export async function generateCoachingReply(context: CoachingReplyContext): Prom
   }
 
   try {
-    const userMessage = `Generate a brief coaching reply confirming an action and suggesting next steps.
+    const recentConversation = context.recentSMS.length > 0 ? context.recentSMS.join('\n') : '(no recent messages)';
 
-Style: ${context.nudgeStyle}
-Outcome target: ${context.outcomeTarget}
-Action just taken: ${context.action}
+    const userMessage = `You're a friend helping someone with their goals via text. Something just happened and you need to reply.
 
-Current goals:
+Style: ${context.nudgeStyle} | Time: ${context.timeOfDay} (${context.currentTime})
+What happened: ${context.action}
+Their target: ${context.outcomeTarget}
+
+Goals:
 ${context.goals.map((g, i) => {
   const subtasks = (g.subtasks || []).map(
     (s) => `  ${s.is_completed ? '[x]' : '[ ]'} ${s.title}`
@@ -200,12 +190,15 @@ ${context.goals.map((g, i) => {
   return `${i + 1}. ${g.title}\n${subtasks || '  (no subtasks)'}`;
 }).join('\n')}
 
-Reply with ONLY the SMS message text. Keep it under 160 characters.`;
+Recent texts:
+${recentConversation}
+
+Reply naturally as a friend. Under 160 characters. Read the conversation — respond to what they actually said.`;
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 200,
-      system: COACHING_SYSTEM_PROMPT,
+      system: 'You are a friendly SMS coaching assistant. Reply with only the text message, nothing else.',
       messages: [{ role: 'user', content: userMessage }],
     });
 

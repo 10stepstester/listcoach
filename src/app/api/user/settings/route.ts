@@ -40,6 +40,9 @@ export async function PATCH(request: Request) {
       'active_hours_end',
       'outcome_target',
       'timezone',
+      'accent_color',
+      'dark_mode',
+      'custom_prompt',
     ];
 
     const updateFields: Record<string, unknown> = {};

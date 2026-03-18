@@ -44,17 +44,26 @@ export async function POST(request: Request) {
       ),
     }));
 
-    // Get recent SMS conversation history (last 10 messages)
+    // Get recent SMS conversation history (last 20 messages with timestamps)
     const { data: recentMessages } = await supabase
       .from('sms_conversations')
       .select('*')
       .eq('user_id', user.id)
       .order('sent_at', { ascending: false })
-      .limit(10);
+      .limit(20);
 
     const recentMessageTexts = (recentMessages || [])
       .reverse()
-      .map((m) => `${m.direction === 'inbound' ? 'User' : 'Coach'}: ${m.message_text}`);
+      .map((m) => {
+        const msgTime = new Intl.DateTimeFormat('en-US', {
+          timeZone: user.timezone,
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }).format(new Date(m.sent_at));
+        const sender = m.direction === 'inbound' ? 'User' : 'Coach';
+        return `[${msgTime}] ${sender}: ${m.message_text}`;
+      });
 
     // Parse intent using Claude
     const parsed = await parseSmsReply({
@@ -147,11 +156,49 @@ export async function POST(request: Request) {
         ),
       }));
 
+      // Calculate context for the reply
+      const now = new Date();
+      const currentHour = parseInt(new Intl.DateTimeFormat('en-US', {
+        timeZone: user.timezone,
+        hour: '2-digit',
+        hour12: false,
+      }).format(now));
+
+      let timeOfDay = 'morning';
+      if (currentHour >= 12 && currentHour < 17) timeOfDay = 'afternoon';
+      else if (currentHour >= 17) timeOfDay = 'evening';
+
+      const currentTimeFormatted = new Intl.DateTimeFormat('en-US', {
+        timeZone: user.timezone,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }).format(now);
+
+      // Calculate hours since last activity
+      const { data: lastActivityRow } = await supabase
+        .from('activity_log')
+        .select('timestamp')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .single();
+
+      let hoursSinceActivity = 24;
+      if (lastActivityRow) {
+        const lastTime = new Date(lastActivityRow.timestamp).getTime();
+        hoursSinceActivity = Math.round((now.getTime() - lastTime) / (1000 * 60 * 60) * 10) / 10;
+      }
+
       replyText = await generateCoachingReply({
         nudgeStyle: user.nudge_style,
         goals: updatedGoalsWithSubtasks,
         action: `User said: "${body}"`,
         outcomeTarget: user.outcome_target,
+        timeOfDay,
+        currentTime: currentTimeFormatted,
+        recentSMS: recentMessageTexts,
+        hoursSinceActivity,
       });
     }
 

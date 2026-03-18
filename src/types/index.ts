@@ -8,6 +8,9 @@ export interface User {
   outcome_target: string;
   google_calendar_token: string | null;
   google_calendar_refresh_token: string | null;
+  accent_color: string;
+  dark_mode: boolean;
+  custom_prompt: string | null;
   created_at: string;
 }
 
@@ -25,11 +28,14 @@ export interface Goal {
 export interface Subtask {
   id: string;
   goal_id: string;
+  parent_id: string | null;
   title: string;
   is_completed: boolean;
   completed_at: string | null;
   position: number;
   created_at: string;
+  ai_summary?: string | null;
+  children?: Subtask[];
 }
 
 export interface SmsConversation {

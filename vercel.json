@@ -1,8 +1,9 @@
 {
+  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/cron/check-goals",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }

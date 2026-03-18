@@ -1,12 +1,12 @@
 import { google } from 'googleapis';
 import { supabase } from '@/lib/db';
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
+const SCOPES = ['https://www.googleapis.com/auth/calendar.freebusy'];
 
 function getOAuth2Client() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const redirectUri = (process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback').trim();
 
   if (!clientId || !clientSecret) {
     return null;
@@ -69,6 +69,31 @@ export async function refreshAccessToken(refreshToken: string): Promise<string |
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function checkFreeBusy(oauth2Client: any): Promise<boolean> {
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+  const now = new Date();
+  // Check a 30-minute window: 5 min ago to 25 min from now
+  // This catches events currently happening and ones about to start
+  const windowStart = new Date(now.getTime() - 5 * 60000);
+  const windowEnd = new Date(now.getTime() + 25 * 60000);
+  const response = await calendar.freebusy.query({
+    requestBody: {
+      timeMin: windowStart.toISOString(),
+      timeMax: windowEnd.toISOString(),
+      items: [{ id: 'primary' }],
+    },
+  });
+
+  const busySlots = response.data.calendars?.primary?.busy || [];
+  const errors = response.data.calendars?.primary?.errors;
+  if (errors && errors.length > 0) {
+    console.error('[Google Calendar] FreeBusy API errors:', JSON.stringify(errors));
+  }
+  console.log(`[Google Calendar] FreeBusy check: ${busySlots.length} busy slots in window ${windowStart.toISOString()} - ${windowEnd.toISOString()}`);
+  return busySlots.length > 0;
+}
+
 export async function hasEventNow(
   accessToken: string,
   refreshToken: string,
@@ -99,28 +124,9 @@ export async function hasEventNow(
   });
 
   try {
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-    const now = new Date();
-    const response = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: now.toISOString(),
-      timeMax: new Date(now.getTime() + 60000).toISOString(), // 1 minute window
-      singleEvents: true,
-      orderBy: 'startTime',
-    });
-
-    const events = response.data.items || [];
-    // Check if any event is currently happening (started before now, ends after now)
-    return events.some((event) => {
-      const start = event.start?.dateTime || event.start?.date;
-      const end = event.end?.dateTime || event.end?.date;
-      if (!start || !end) return false;
-      const startTime = new Date(start);
-      const endTime = new Date(end);
-      return startTime <= now && endTime > now;
-    });
+    return await checkFreeBusy(oauth2Client);
   } catch (error) {
-    console.error('[Google Calendar] Error checking events:', error);
+    console.error('[Google Calendar] Error checking free/busy:', error);
     // If token expired, try refreshing
     try {
       const newToken = await refreshAccessToken(refreshToken);
@@ -130,27 +136,11 @@ export async function hasEventNow(
           .update({ google_calendar_token: newToken })
           .eq('id', userId);
 
-        // Retry with new token
         oauth2Client.setCredentials({
           access_token: newToken,
           refresh_token: refreshToken,
         });
-        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-        const now = new Date();
-        const response = await calendar.events.list({
-          calendarId: 'primary',
-          timeMin: now.toISOString(),
-          timeMax: new Date(now.getTime() + 60000).toISOString(),
-          singleEvents: true,
-          orderBy: 'startTime',
-        });
-        const events = response.data.items || [];
-        return events.some((event) => {
-          const start = event.start?.dateTime || event.start?.date;
-          const end = event.end?.dateTime || event.end?.date;
-          if (!start || !end) return false;
-          return new Date(start) <= now && new Date(end) > now;
-        });
+        return await checkFreeBusy(oauth2Client);
       }
     } catch (retryError) {
       console.error('[Google Calendar] Retry failed:', retryError);

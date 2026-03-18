@@ -29,24 +29,41 @@ export async function POST(
       return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
     }
 
-    const { title } = await request.json();
+    const { title, parent_id } = await request.json();
     if (!title || typeof title !== 'string') {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
-    const { data: maxPosRow } = await supabase
+    // Get max position among siblings (same parent_id)
+    let query = supabase
       .from('subtasks')
       .select('position')
       .eq('goal_id', id)
       .order('position', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
+    if (parent_id) {
+      query = query.eq('parent_id', parent_id);
+    } else {
+      query = query.is('parent_id', null);
+    }
+
+    const { data: maxPosRow } = await query.single();
     const position = (maxPosRow?.position ?? 0) + 1;
+
+    const insertData: Record<string, unknown> = {
+      goal_id: id,
+      title,
+      is_completed: false,
+      position,
+    };
+    if (parent_id) {
+      insertData.parent_id = parent_id;
+    }
 
     const { data: subtask, error: insertError } = await supabase
       .from('subtasks')
-      .insert({ goal_id: id, title, is_completed: false, position })
+      .insert(insertData)
       .select()
       .single();
 
@@ -94,7 +111,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
     }
 
-    const { subtaskId, title, is_completed } = await request.json();
+    const body = await request.json();
+    const { subtaskId, title, is_completed, position } = body;
     if (!subtaskId) {
       return NextResponse.json({ error: 'subtaskId is required' }, { status: 400 });
     }
@@ -114,6 +132,11 @@ export async function PATCH(
 
     if (title !== undefined) {
       updateFields.title = title;
+      updateFields.ai_summary = null; // Clear stale summary so a fresh one gets generated
+    }
+
+    if (position !== undefined) {
+      updateFields.position = position;
     }
 
     if (is_completed !== undefined) {
@@ -131,6 +154,17 @@ export async function PATCH(
     if (updateError || !updated) {
       console.error('PATCH /api/goals/[id]/subtasks update error:', updateError);
       return NextResponse.json({ error: 'Failed to update subtask' }, { status: 500 });
+    }
+
+    // If completing/uncompleting, also cascade to children
+    if (is_completed !== undefined) {
+      await supabase
+        .from('subtasks')
+        .update({
+          is_completed,
+          completed_at: is_completed ? new Date().toISOString() : null,
+        })
+        .eq('parent_id', subtaskId);
     }
 
     const actionType = is_completed !== undefined
@@ -192,6 +226,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Subtask not found' }, { status: 404 });
     }
 
+    // CASCADE will handle deleting children
     const { error: deleteError } = await supabase
       .from('subtasks')
       .delete()
