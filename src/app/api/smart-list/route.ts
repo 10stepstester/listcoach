@@ -147,7 +147,7 @@ async function insertReorganized(
     title: item.title,
     priority: item.priority,
     reasoning: item.reasoning,
-    is_completed: false,
+    is_completed: item.is_completed ?? false,
     position: i + 1,
     parent_id: null,
   }));

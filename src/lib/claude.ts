@@ -215,6 +215,7 @@ export interface ReorganizedItem {
   title: string;
   priority: number;
   reasoning: string;
+  is_completed: boolean;
   children: ReorganizedItem[];
 }
 
@@ -226,6 +227,7 @@ export async function reorganizeTodos(subtasks: Subtask[]): Promise<ReorganizedI
       title: s.title,
       priority: i + 1,
       reasoning: '',
+      is_completed: s.is_completed,
       children: [],
     }));
   }
@@ -265,6 +267,7 @@ Include ALL ${leaves.length} indices exactly once.`
         title: s.title,
         priority: i + 1,
         reasoning: '',
+        is_completed: s.is_completed,
         children: [],
       }));
     }
@@ -280,6 +283,7 @@ Include ALL ${leaves.length} indices exactly once.`
       title: leaves[idx]?.title ?? '',
       priority: pos + 1,
       reasoning: '',
+      is_completed: leaves[idx]?.is_completed ?? false,
       children: [],
     }));
   } catch (error) {
@@ -292,6 +296,7 @@ Include ALL ${leaves.length} indices exactly once.`
       title: s.title,
       priority: i + 1,
       reasoning: '',
+      is_completed: s.is_completed,
       children: [],
     }));
   }
