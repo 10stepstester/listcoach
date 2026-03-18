@@ -286,7 +286,10 @@ Rules:
       }));
     }
 
-    return JSON.parse(textBlock.text.trim()) as ReorganizedItem[];
+    // Strip markdown code fences if present (```json ... ```)
+    let jsonText = textBlock.text.trim();
+    jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    return JSON.parse(jsonText) as ReorganizedItem[];
   } catch (error) {
     console.error('[Claude] Error reorganizing todos:', error);
     return subtasks.map((s, i) => ({
