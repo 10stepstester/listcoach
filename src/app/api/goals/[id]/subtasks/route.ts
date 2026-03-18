@@ -112,7 +112,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { subtaskId, title, is_completed, position } = body;
+    const { subtaskId, title, is_completed, position, parent_id } = body;
     if (!subtaskId) {
       return NextResponse.json({ error: 'subtaskId is required' }, { status: 400 });
     }
@@ -137,6 +137,11 @@ export async function PATCH(
 
     if (position !== undefined) {
       updateFields.position = position;
+    }
+
+    if (parent_id !== undefined) {
+      // null is valid (move to root level)
+      updateFields.parent_id = parent_id;
     }
 
     if (is_completed !== undefined) {
