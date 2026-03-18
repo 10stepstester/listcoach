@@ -13,6 +13,9 @@ The app is functional and deployed on Vercel at https://goal-app-five-beta.verce
 - Basic goal CRUD, subtask management, SMS webhook, cron nudge job
 - Supabase + Twilio + Anthropic + Google Calendar integration
 
+### Cross-device sync — Session 3 (2026-03-18)
+- **Poll + focus refetch** — `GoalList.tsx` re-fetches both raw subtasks and smart list on `window focus` (instant sync when switching back from phone) and every 15 seconds while the tab is visible. Polling auto-pauses when tab is backgrounded.
+
 ### Smart List Fix — Session 3 (2026-03-18)
 - **is_completed sync on regeneration** — `insertReorganized` was hardcoding `is_completed: false` for all items, causing completed tasks to reappear as active every time the smart list regenerated. Fixed by adding `is_completed` to `ReorganizedItem` interface, propagating it from raw subtask leaf nodes in all return paths of `reorganizeTodos`, and using it in `insertReorganized` instead of the hardcoded value. Now completed items stay checked after refresh.
 
