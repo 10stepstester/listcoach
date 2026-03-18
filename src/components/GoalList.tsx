@@ -146,7 +146,11 @@ function buildSubtaskTree(flatSubtasks: Subtask[]): Subtask[] {
   });
 
   const sortChildren = (nodes: Subtask[]) => {
-    nodes.sort((a, b) => a.position - b.position);
+    nodes.sort((a, b) => {
+      // Completed items sink to the bottom
+      if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
+      return a.position - b.position;
+    });
     nodes.forEach((n) => {
       if (n.children && n.children.length > 0) sortChildren(n.children);
     });
