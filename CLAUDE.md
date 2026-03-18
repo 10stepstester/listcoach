@@ -116,6 +116,14 @@ npm run lint         # ESLint
 
 ## Session Rules
 
-- Commit and push to GitHub at the end of every session.
-- Update `project_state.md` after completing any meaningful step.
+These steps are MANDATORY at the end of every session. Do not skip any of them.
+
+1. **Update `project_state.md`** — document what was built/changed in this session under a new dated section.
+2. **Commit** — stage all changed files and commit with a descriptive message.
+3. **Push to GitHub** — `git push origin main`.
+4. **Deploy to Vercel** — `npx vercel --prod` (GitHub → Vercel auto-deploy webhook is broken; manual deploy is always required).
+5. **Verify the live site** — open https://goal-app-five-beta.vercel.app/ and confirm the changes are visible and working. Do not tell the user the session is done until this step is confirmed.
+
+Additional rules:
 - No testing framework is configured — be careful with changes to API routes and lib functions.
+- Update `project_state.md` after completing any meaningful step mid-session too, not only at the end.
