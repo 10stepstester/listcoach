@@ -13,7 +13,19 @@ The app is functional and deployed on Vercel at https://goal-app-five-beta.verce
 - Basic goal CRUD, subtask management, SMS webhook, cron nudge job
 - Supabase + Twilio + Anthropic + Google Calendar integration
 
-### Committed & Deployed (2026-03-18 session)
+### Phase 1 — Committed & Deployed (2026-03-18)
+- **Roboto font** — switched from Geist; category headers weight 500, tasks weight 400
+- **Drag handles** — GripVertical (lucide-react) as the only drag activator per row; hover-reveal hidden during active drag
+- **Collapsible categories** — chevron (›/▼) on category headers; collapse state in component memory
+- **Category [+] button** — always visible on category headers (not hover-only)
+- **Hover-reveal (desktop)** — + child, → move-to-category dropdown, × delete
+- **Move-to-category dropdown** — lists all categories, updates parent_id + position via PATCH
+- **Long-press bottom sheet (mobile)** — 500ms trigger; Edit / Move to... / Add item below
+- **addSiblingSubtask** — "Add item below" in long-press sheet adds sibling at same level
+- **Subtasks PATCH API** — added parent_id field support for move-to-category
+- **DnD** — @dnd-kit; children in nested SortableContext per category; drag reorders within same parent; batch-PATCHes positions
+
+### Previously Committed (2026-03-18 session)
 - **Smart List tab** — `/api/smart-list` route + `smart_list_items` table; AI prioritizes all raw to-dos into a flat ranked list
 - **Smart List speed** — optimized from 39s → 2.3s: switched to `claude-haiku-4-5`, compact index-only output format, batch DB insert, pre-filter to leaf nodes only
 - **Smart List refresh icon** — small ↻ icon on the Smart List tab (replaces bottom "Reorganize" button); spins while loading
@@ -35,11 +47,11 @@ The app is functional and deployed on Vercel at https://goal-app-five-beta.verce
 
 ## What's Next
 
+- **Phase 2 (PART 3A-3C)** — SMS cron every 10 min, focus mode, nudge logic overhaul
+- **Phase 3 (PART 3D-3E)** — Claude prompt refactor + prompts.ts focus-coach template
 - **Smart List sync** — when raw to-do is deleted, remove it from smart_list_items too
 - **Auth** — no user authentication on the web UI (API uses service role key directly)
 - **Multi-user** — schema supports it, web UI is single-user (hardcoded user fetch)
-- **Testing** — no test framework configured; consider adding Vitest
-- **Error handling** — API routes have basic try/catch but no structured error responses
 
 ## Known Issues
 
