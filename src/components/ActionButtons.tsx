@@ -13,6 +13,7 @@ interface ActionButtonsProps {
   darkMode: boolean;
   accentColor: string;
   onThoughtAdded: () => void;
+  compact?: boolean;
 }
 
 interface ChatMessage {
@@ -398,45 +399,73 @@ export default function ActionButtons({
   darkMode,
   accentColor,
   onThoughtAdded,
+  compact = false,
 }: ActionButtonsProps) {
   const [showThought, setShowThought] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   return (
     <>
-      <div className="flex gap-3 py-3">
-        <button
-          onClick={() => setShowThought(true)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
-            darkMode
-              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
-              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-          }`}
-          style={{
-            borderWidth: 1,
-            borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
-        >
-          <Lightbulb className="h-5 w-5" style={{ color: accentColor }} />
-          Add thought
-        </button>
+      {compact ? (
+        /* Compact: icon-only buttons for mobile header row */
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => setShowThought(true)}
+            className={`flex items-center justify-center w-9 h-9 rounded-full transition-colors ${
+              darkMode
+                ? 'bg-zinc-800/80 active:bg-zinc-700'
+                : 'bg-gray-100 active:bg-gray-200'
+            }`}
+          >
+            <Lightbulb className="h-4 w-4" style={{ color: accentColor }} />
+          </button>
+          <button
+            onClick={() => setShowChat(true)}
+            className={`flex items-center justify-center w-9 h-9 rounded-full transition-colors ${
+              darkMode
+                ? 'bg-zinc-800/80 active:bg-zinc-700'
+                : 'bg-gray-100 active:bg-gray-200'
+            }`}
+          >
+            <MessageCircle className="h-4 w-4" style={{ color: accentColor }} />
+          </button>
+        </div>
+      ) : (
+        /* Full-size: labeled buttons */
+        <div className="flex gap-3 py-3">
+          <button
+            onClick={() => setShowThought(true)}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
+              darkMode
+                ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
+                : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+            }`}
+            style={{
+              borderWidth: 1,
+              borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+            }}
+          >
+            <Lightbulb className="h-5 w-5" style={{ color: accentColor }} />
+            Add thought
+          </button>
 
-        <button
-          onClick={() => setShowChat(true)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
-            darkMode
-              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
-              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
-          }`}
-          style={{
-            borderWidth: 1,
-            borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
-        >
-          <MessageCircle className="h-5 w-5" style={{ color: accentColor }} />
-          Ask about list
-        </button>
-      </div>
+          <button
+            onClick={() => setShowChat(true)}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
+              darkMode
+                ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
+                : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+            }`}
+            style={{
+              borderWidth: 1,
+              borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+            }}
+          >
+            <MessageCircle className="h-5 w-5" style={{ color: accentColor }} />
+            Ask about list
+          </button>
+        </div>
+      )}
 
       <AddThoughtSheet
         open={showThought}

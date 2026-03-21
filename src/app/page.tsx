@@ -45,7 +45,19 @@ export default function Home() {
 
       {/* Top Bar */}
       <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:py-6 md:px-10 md:py-8">
-        <div className="flex-shrink-0">
+        {/* Mobile: timer + icon buttons in one row */}
+        <div className="flex sm:hidden items-center gap-2 flex-shrink-0">
+          <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
+          <ActionButtons
+            goalId={goalId}
+            darkMode={darkMode}
+            accentColor={accentColor}
+            onThoughtAdded={() => setRefreshKey((k) => k + 1)}
+            compact
+          />
+        </div>
+        {/* Desktop: timer in its original position */}
+        <div className="hidden sm:block flex-shrink-0">
           <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
         </div>
         <div className="flex-shrink-0">
@@ -53,8 +65,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Action Buttons */}
-      <div className="px-4 sm:px-6 md:px-10">
+      {/* Desktop Action Buttons */}
+      <div className="hidden sm:block px-4 sm:px-6 md:px-10">
         <div className="mx-auto max-w-2xl">
           <ActionButtons
             goalId={goalId}
@@ -65,7 +77,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content — list */}
       <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="mx-auto max-w-2xl">
           <GoalList
