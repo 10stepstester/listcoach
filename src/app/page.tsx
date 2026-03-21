@@ -44,7 +44,7 @@ export default function Home() {
       <div className="w-full" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
       {/* Top Bar */}
-      <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:pt-4 sm:pb-2 md:px-10">
+      <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:py-6 md:px-10 md:py-8">
         {/* Mobile: timer + icon buttons in one row */}
         <div className="flex sm:hidden items-center gap-2 flex-shrink-0">
           <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
@@ -56,14 +56,16 @@ export default function Home() {
             compact
           />
         </div>
-        {/* Desktop: just a spacer on the left */}
-        <div className="hidden sm:block" />
+        {/* Desktop: timer in its original position */}
+        <div className="hidden sm:block flex-shrink-0">
+          <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
+        </div>
         <div className="flex-shrink-0">
           <Settings onAccentChange={handleAccentChange} onDarkModeChange={handleDarkModeChange} darkMode={darkMode} />
         </div>
       </header>
 
-      {/* Desktop Action Buttons — above the list */}
+      {/* Desktop Action Buttons */}
       <div className="hidden sm:block px-4 sm:px-6 md:px-10">
         <div className="mx-auto max-w-2xl">
           <ActionButtons
@@ -86,11 +88,6 @@ export default function Home() {
           />
         </div>
       </main>
-
-      {/* Desktop Timer — below list */}
-      <div className="hidden sm:flex justify-center px-4 sm:px-6 md:px-10 py-8">
-        <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
-      </div>
     </div>
   );
 }
