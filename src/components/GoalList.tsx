@@ -320,11 +320,11 @@ function SubtaskRow({
         <div
           {...attributes}
           {...listeners}
-          className={`flex-shrink-0 flex items-center justify-center w-8 h-10 cursor-grab active:cursor-grabbing rounded-md transition-colors
+          className={`flex-shrink-0 flex items-center justify-center w-8 h-10 cursor-grab active:cursor-grabbing rounded-md transition-colors select-none
             ${dm ? 'text-zinc-600 active:text-zinc-400 active:bg-zinc-800' : 'text-gray-300 active:text-gray-500 active:bg-gray-100'}
             ${isEffectivelyComplete ? 'opacity-40' : ''}
           `}
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', WebkitUserSelect: 'none' }}
           aria-label="Drag to reorder"
         >
           <GripVertical size={20} />
@@ -339,7 +339,7 @@ function SubtaskRow({
             `}
           >
             <ChevronRight
-              size={16}
+              size={22}
               className={`transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`}
             />
           </button>

@@ -39,7 +39,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className={`w-full max-w-[100vw] overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`w-full max-w-[100vw] min-h-dvh overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
 
       {/* ── Mobile layout (below md) ────────────────────────────────── */}
       <div className="md:hidden flex flex-col h-dvh w-full overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
@@ -67,7 +67,7 @@ export default function Home() {
       </div>
 
       {/* ── Desktop layout (md and up) ──────────────────────────────── */}
-      <div className="hidden md:flex items-start gap-8 px-6 lg:px-10 pt-6">
+      <div className="hidden md:flex items-start gap-8 px-6 lg:px-10 pt-6 min-h-dvh overflow-y-auto">
         {/* Left column: Timer */}
         <div className="flex-shrink-0 w-[180px]">
           <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
