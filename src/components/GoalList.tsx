@@ -432,21 +432,28 @@ function SubtaskRow({
         onTouchStart={onTouchStart}
         onTouchEnd={cancelLongPress}
         onTouchMove={cancelLongPress}
-        {...attributes}
-        {...listeners}
-        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'none' }}
+        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'manipulation' }}
       >
+        {/* Left-edge drag zone — handles DnD touch on mobile, invisible */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-0 top-0 bottom-0 w-12 z-10 cursor-grab active:cursor-grabbing md:w-full"
+          style={{ touchAction: 'none' }}
+          aria-hidden="true"
+        />
+
         {/* Chevron for collapsible categories */}
         {isCategory && (
           <button
             onClick={() => onToggleCollapse(subtask.id)}
-            className={`flex-shrink-0 transition-transform duration-150 p-0.5 rounded
+            className={`flex-shrink-0 transition-transform duration-150 p-1 rounded relative z-20
               ${dm ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}
             `}
           >
             <ChevronRight
-              size={10}
-              className={`transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'} sm:w-3 sm:h-3`}
+              size={16}
+              className={`transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`}
             />
           </button>
         )}
@@ -454,13 +461,13 @@ function SubtaskRow({
         {/* Checkbox */}
         <div
           onClick={() => toggleSubtask(subtask.id, !subtask.is_completed)}
-          className="flex-shrink-0"
+          className="flex-shrink-0 relative z-20"
         >
           <CheckIcon checked={isEffectivelyComplete} accentColor={accentColor} />
         </div>
 
         {/* Title */}
-        <div className="flex-1 min-w-0 px-1">
+        <div className="flex-1 min-w-0 px-1 relative z-20">
           <InlineEdit
             value={subtask.title}
             onSave={(title) => updateSubtaskTitle(subtask.id, title)}
@@ -480,7 +487,7 @@ function SubtaskRow({
         {isCategory && (
           <button
             onClick={() => addChildSubtask(subtask.id)}
-            className={`flex-shrink-0 p-1 rounded transition-colors
+            className={`flex-shrink-0 p-1 rounded transition-colors relative z-20
               ${dm ? 'text-zinc-600 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}
             `}
             title="Add task to this category"
@@ -490,7 +497,7 @@ function SubtaskRow({
         )}
 
         {/* Hover-reveal actions (desktop + non-dragging) */}
-        <div className={`flex items-center gap-0.5 flex-shrink-0 transition-opacity duration-150 ${
+        <div className={`flex items-center gap-0.5 flex-shrink-0 transition-opacity duration-150 relative z-20 ${
           isDragActive ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'
         }`}>
           {/* Add child — non-category, max depth 2 */}
