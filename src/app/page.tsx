@@ -39,12 +39,10 @@ export default function Home() {
   }, []);
 
   return (
-    <div className={`h-dvh w-full max-w-[100vw] overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Safe area top spacer — pushes content below iPhone notch */}
-      <div className="w-full flex-shrink-0" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
+    <div className={`w-full max-w-[100vw] overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
 
       {/* ── Mobile layout (below md) ────────────────────────────────── */}
-      <div className="md:hidden flex flex-col h-dvh w-full overflow-hidden">
+      <div className="md:hidden flex flex-col h-dvh w-full overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         {/* Mobile top bar: single row — timer circle + action buttons + gear */}
         <div className="px-3 pt-2 pb-1 flex-shrink-0">
           <ActionButtons

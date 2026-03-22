@@ -434,7 +434,7 @@ function SubtaskRow({
         onTouchMove={cancelLongPress}
         {...attributes}
         {...listeners}
-        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'none' }}
+        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: isDragging ? 'none' : 'manipulation' }}
       >
         {/* Chevron for collapsible categories */}
         {isCategory && (
