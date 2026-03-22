@@ -1,18 +1,12 @@
 # Project State
 
-*Last updated: 2026-03-21 (Session 5)*
+*Last updated: 2026-03-21 (Session 4)*
 
 ## Current Status
 
 The app is functional and deployed on Vercel at https://goal-app-five-beta.vercel.app/. All recent work is committed and deployed. The dashboard has two tabs: Raw To-dos (hierarchical, editable list) and Smart List (AI-prioritized flat list), plus two action buttons between the header and list. Note: GitHub pushes do NOT auto-trigger Vercel deploys — must run `npx vercel --prod` manually after each push.
 
 ## What's Built
-
-### Mobile Fix — Session 5 (2026-03-21)
-- **Fixed horizontal overflow** — Added `width: 100%; max-width: 100vw; overflow-x: hidden` to `html, body` in `globals.css`. Root container in `page.tsx` now uses `w-full max-w-[100vw] overflow-x-hidden`.
-- **Scrollable todo list** — Mobile layout is now a full-height flex column (`h-dvh flex flex-col`). Top bar is `flex-shrink-0`, main list area is `flex-1 overflow-y-auto` so it fills remaining viewport and scrolls independently. Uses `dvh` (dynamic viewport height) to account for mobile browser chrome.
-- **Drag-and-drop sensitivity** — Increased `PointerSensor` activation distance from 5px to 8px. `TouchSensor` already had `delay: 250, tolerance: 5` from Session 4.
-- **Files changed:** `globals.css`, `page.tsx`, `GoalList.tsx`
 
 ### UI Redesign — Session 4 (2026-03-21)
 - **Responsive layout** — Desktop: flexbox row with timer column (180px, left), main content (max 640px, top-aligned), settings gear (right). Mobile: single column with compact top bar.

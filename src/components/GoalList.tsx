@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   DndContext,
-  MouseSensor,
+  PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -433,7 +434,7 @@ function SubtaskRow({
         onTouchMove={cancelLongPress}
         {...attributes}
         {...listeners}
-        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'manipulation' }}
+        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'none' }}
       >
         {/* Chevron for collapsible categories */}
         {isCategory && (
@@ -714,9 +715,10 @@ export default function GoalList({
   const [smartItems, setSmartItems] = useState<SmartListItem[]>([]);
   const [smartLoading, setSmartLoading] = useState(false);
 
-  // DnD sensors — mouse only; on mobile, reorder via long-press action sheet
+  // DnD sensors
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
   );
 
   // ── Fetch ──────────────────────────────────────────────────────────────────

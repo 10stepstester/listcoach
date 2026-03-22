@@ -39,12 +39,14 @@ export default function Home() {
   }, []);
 
   return (
-    <div className={`w-full max-w-[100vw] overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`min-h-dvh transition-colors duration-300 ${darkMode ? 'bg-[#0c0c0f] text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Safe area top spacer — pushes content below iPhone notch */}
+      <div className="w-full" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
       {/* ── Mobile layout (below md) ────────────────────────────────── */}
-      <div className="md:hidden flex flex-col h-dvh w-full overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div className="md:hidden">
         {/* Mobile top bar: single row — timer circle + action buttons + gear */}
-        <div className="px-3 pt-2 pb-1 flex-shrink-0">
+        <div className="px-3 pt-2 pb-1">
           <ActionButtons
             goalId={goalId}
             darkMode={darkMode}
@@ -55,8 +57,8 @@ export default function Home() {
           />
         </div>
 
-        {/* Mobile list — fills remaining height, scrolls independently */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 pt-1" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}>
+        {/* Mobile list */}
+        <main className="px-4 pt-1" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
           <GoalList
             accentColor={accentColor}
             darkMode={darkMode}
