@@ -47,7 +47,7 @@ supabase/migrations/
 ## Commands
 
 ```bash
-npm run dev          # Next.js dev server (port 3000)
+npm run dev          # Next.js dev server (port 3002)
 npm run build        # Production build
 npm run lint         # ESLint
 ```
@@ -116,14 +116,7 @@ npm run lint         # ESLint
 
 ## Session Rules
 
-These steps are MANDATORY at the end of every session. Do not skip any of them.
-
-1. **Update `project_state.md`** — document what was built/changed in this session under a new dated section.
-2. **Commit** — stage all changed files and commit with a descriptive message.
-3. **Push to GitHub** — `git push origin main`.
-4. **Deploy to Vercel** — `npx vercel --prod` (GitHub → Vercel auto-deploy webhook is broken; manual deploy is always required).
-5. **Verify the live site** — open https://goal-app-five-beta.vercel.app/ and confirm the changes are visible and working. Do not tell the user the session is done until this step is confirmed.
-
-Additional rules:
-- No testing framework is configured — be careful with changes to API routes and lib functions.
-- Update `project_state.md` after completing any meaningful step mid-session too, not only at the end.
+See global session rules in ~/.claude/CLAUDE.md. Project-specific additions:
+- Deploy: `npx vercel --prod` (GitHub → Vercel auto-deploy webhook is broken; manual deploy is always required)
+- Verify: open https://goal-app-five-beta.vercel.app/ and confirm changes are visible before reporting done
+- No testing framework — be careful with changes to API routes and lib functions
