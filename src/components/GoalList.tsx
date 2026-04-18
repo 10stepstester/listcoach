@@ -306,6 +306,12 @@ function SubtaskRow({
 
   const activeChildren = children.filter((c) => !c.is_completed);
   const completedChildren = children.filter((c) => c.is_completed);
+  
+  // Wrapper to expand parent when adding a child
+  const handleAddChild = (parentId: string) => {
+    onToggleCollapse(parentId); // This will remove from collapsedIds if present
+    addChildSubtask(parentId);
+  };
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -373,7 +379,7 @@ function SubtaskRow({
         {/* Category [+] — always visible */}
         {isCategory && (
           <button
-            onClick={() => addChildSubtask(subtask.id)}
+            onClick={() => handleAddChild(subtask.id)}
             className={`flex-shrink-0 p-1 rounded transition-colors
               ${dm ? 'text-zinc-600 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}
             `}
@@ -390,7 +396,7 @@ function SubtaskRow({
           {/* Add child — non-category, max depth 2 */}
           {!isCategory && depth < 2 && (
             <button
-              onClick={() => addChildSubtask(subtask.id)}
+              onClick={() => handleAddChild(subtask.id)}
               className={`p-1 rounded transition-colors ${dm ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}
               title="Add sub-item"
             >
@@ -500,27 +506,14 @@ function SmartItemRow({
         <div className="mt-0.5 flex-shrink-0" onClick={() => onToggle(item.id, !item.is_completed)}>
           <CheckIcon checked={item.is_completed} accentColor={accentColor} />
         </div>
-        <div className="flex-1 min-w-0">
-          <span className={`text-sm ${item.is_completed
-            ? (dm ? 'line-through text-zinc-500' : 'line-through text-gray-400')
-            : (dm ? 'text-zinc-200' : 'text-gray-800')
-          }`}>
-            {item.title}
-          </span>
-        </div>
-        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5 ${dm ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-100 text-gray-500'}`}>
-          P{item.priority}
+        <span className={`flex-1 text-[13px] leading-snug break-words
+          ${item.is_completed ? (dm ? 'line-through text-zinc-500' : 'line-through text-gray-400') : (dm ? 'text-zinc-200' : 'text-gray-800')}
+        `}>
+          {item.title || <span className="opacity-40">Untitled</span>}
         </span>
       </div>
       {children.map((child) => (
-        <SmartItemRow
-          key={child.id}
-          item={child}
-          depth={depth + 1}
-          accentColor={accentColor}
-          darkMode={dm}
-          onToggle={onToggle}
-        />
+        <SmartItemRow key={child.id} item={child} depth={depth + 1} accentColor={accentColor} darkMode={dm} onToggle={onToggle} />
       ))}
     </div>
   );
@@ -542,49 +535,54 @@ function CompletedRow({
   const dm = darkMode;
   return (
     <div
-      className={`flex items-center gap-1.5 py-[5px] md:py-1.5 px-2 rounded-lg transition-all ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
+      className="flex items-center gap-1.5 py-1.5 rounded-lg"
+      style={{ paddingLeft: '4px', paddingRight: '8px' }}
     >
-      <div className="flex-shrink-0 cursor-pointer" onClick={onUncheck}>
+      <div onClick={onUncheck} className="flex-shrink-0 cursor-pointer">
         <CheckIcon checked={true} accentColor={accentColor} />
       </div>
-      <span className={`text-sm flex-1 min-w-0 px-1 line-through ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>
+      <span className={`flex-1 text-sm ${dm ? 'line-through text-zinc-500' : 'line-through text-gray-400'}`}>
         {subtask.title || 'Untitled'}
       </span>
     </div>
   );
 }
 
-// ─── GoalList ────────────────────────────────────────────────────────────────
-
-type Tab = 'raw' | 'smart';
+// ─── GoalList component ─────────────────────────────────────────────────────
 
 export default function GoalList({
   accentColor = '#3b82f6',
   darkMode = false,
-  refreshKey,
+  refreshKey = 0,
   onGoalLoaded,
 }: {
   accentColor?: string;
   darkMode?: boolean;
   refreshKey?: number;
-  onGoalLoaded?: (id: string) => void;
+  onGoalLoaded?: (goalId: string) => void;
 }) {
   const dm = darkMode;
-  const [activeTab, setActiveTab] = useState<Tab>('raw');
-  const [loading, setLoading] = useState(true);
-
-  // Raw to-dos state
+  const [activeTab, setActiveTab] = useState<'raw' | 'smart'>('raw');
   const [goalId, setGoalId] = useState<string | null>(null);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  // Smart list state
+  const [smartItems, setSmartItems] = useState<SmartListItem[]>([]);
+  const [smartLoading, setSmartLoading] = useState(false);
 
   // Drag state
   const [isDragActive, setIsDragActive] = useState(false);
 
-  // Collapsed category state — categories start collapsed
-  const initialCollapseRef = useRef(false);
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // Completed section toggle
   const [completedExpanded, setCompletedExpanded] = useState(true);
+
+  // Ref to track if we've done initial collapse
+  const initialCollapseRef = useRef(false);
+
+  // ── Collapse toggle ──────────────────────────────────────────────────────────
   const onToggleCollapse = useCallback((id: string) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -593,10 +591,6 @@ export default function GoalList({
       return next;
     });
   }, []);
-
-  // Smart list state
-  const [smartItems, setSmartItems] = useState<SmartListItem[]>([]);
-  const [smartLoading, setSmartLoading] = useState(false);
 
   // DnD sensors
   const sensors = useSensors(
