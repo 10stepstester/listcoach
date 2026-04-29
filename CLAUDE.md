@@ -116,7 +116,7 @@ npm run lint         # ESLint
 
 ## Session Rules
 
-See global session rules in ~/.claude/CLAUDE.md. Project-specific additions:
+See session rules in ../CLAUDE.md. Project-specific additions:
 - Deploy: `npx vercel --prod` (GitHub → Vercel auto-deploy webhook is broken; manual deploy is always required)
 - Verify: open https://goal-app-five-beta.vercel.app/ and confirm changes are visible before reporting done
 - No testing framework — be careful with changes to API routes and lib functions

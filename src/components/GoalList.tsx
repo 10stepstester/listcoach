@@ -307,9 +307,9 @@ function SubtaskRow({
   const activeChildren = children.filter((c) => !c.is_completed);
   const completedChildren = children.filter((c) => c.is_completed);
   
-  // Wrapper to expand parent when adding a child
+  // Wrapper to expand parent when adding a child — only toggles if currently collapsed
   const handleAddChild = (parentId: string) => {
-    onToggleCollapse(parentId); // This will remove from collapsedIds if present
+    if (collapsedIds.has(parentId)) onToggleCollapse(parentId);
     addChildSubtask(parentId);
   };
 
