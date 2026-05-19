@@ -98,7 +98,8 @@ users: id, phone_number, timezone, nudge_style, active_hours_start/end, outcome_
 
 goals: id, user_id, title, position, is_active
 
-subtasks: id, goal_id, parent_id (nullable), title, is_completed, completed_at, position
+subtasks: id, goal_id, parent_id (nullable), title, is_completed, completed_at, position,
+         proposed_for_daily_at (nullable), daily_response (nullable)
 
 sms_conversations: id, user_id, direction, message_text, goal_context (JSONB), sent_at
 
