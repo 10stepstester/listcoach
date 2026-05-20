@@ -6,16 +6,6 @@ import { hasEventNow } from '@/lib/google-calendar';
 
 export async function GET(request: Request) {
   try {
-    // Log caller info for debugging
-    const callerInfo = {
-      user_agent: request.headers.get('user-agent'),
-      x_forwarded_for: request.headers.get('x-forwarded-for'),
-      x_vercel_cron: request.headers.get('x-vercel-cron'),
-      referer: request.headers.get('referer'),
-      origin: request.headers.get('origin'),
-    };
-    console.log('[Cron] Called by:', JSON.stringify(callerInfo));
-
     // Verify cron secret if configured
     const cronSecret = process.env.CRON_SECRET;
     if (cronSecret) {
