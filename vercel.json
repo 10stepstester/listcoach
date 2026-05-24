@@ -15,6 +15,9 @@
     },
     "src/app/api/cron/daily-prompt/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/cron/morning-advisory/route.ts": {
+      "maxDuration": 60
     }
   }
 }

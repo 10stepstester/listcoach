@@ -108,11 +108,23 @@ npm run lint         # ESLint
 | `/api/goals/[id]/subtasks` | POST, PATCH, DELETE | Subtask management |
 | `/api/goals/[id]/subtasks/summarize` | POST | AI subtask summary |
 | `/api/cron/check-goals` | GET | Nudge cron job |
+| `/api/cron/morning-advisory` | POST | Morning AI advisory (5 advisors + synthesizer) |
 | `/api/twilio/webhook` | POST | Inbound SMS handler |
 | `/api/auth/google` | GET | Google OAuth start |
 | `/api/auth/google/callback` | GET | Google OAuth callback |
 | `/api/user/settings` | GET, PATCH | User settings |
 | `/api/user/refine-prompt` | POST | AI prompt refinement |
+
+## Cron Architecture
+
+- **Vercel cron** (`vercel.json`): `/api/cron/check-goals` once daily at 12:00 UTC. This is the Hobby-tier fallback only.
+- **External cron-job.org**: hits `/api/cron/check-goals` every 10 minutes (the real driver), and hits `/api/cron/morning-advisory` once each morning at 6:00 AM local time.
+- The morning advisory writes a `daily_advisory` row that check-goals reads on every call for today's `recommended_focus` and `nudge_guidance`.
+- The user's manual `focus` field (set via the focus bar at the top of the list page) overrides `recommended_focus` when set.
+
+## Sprint Convention
+
+The "Sprint" top-level subtask in the list is the strategic anchor. Its children are the current sprint tracks. The morning advisory and the every-10-min cron both read from it at runtime. Edit it like any other list item; changes are picked up on the next cron call. If no Sprint item exists, both crons fall back to legacy behavior (focus + first-uncompleted task).
 
 ## Session Rules
 

@@ -102,6 +102,39 @@ export async function GET(request: Request) {
           }
         }
 
+        // === Find Sprint item and collect sprint tracks ===
+        const sprintRegex = /sprint/i;
+        let sprintTracks: string[] = [];
+        for (const goal of goalsWithSubtasks) {
+          const sprintItem = (goal.subtasks || []).find(
+            (s: { title: string; parent_id: string | null }) => !s.parent_id && sprintRegex.test(s.title)
+          );
+          if (sprintItem) {
+            sprintTracks = (goal.subtasks || [])
+              .filter((s: { parent_id: string | null; is_completed: boolean }) =>
+                s.parent_id === sprintItem.id && !s.is_completed
+              )
+              .map((s: { title: string }) => s.title);
+            break;
+          }
+        }
+
+        // === Fetch today's daily advisory ===
+        const todayLocal = new Intl.DateTimeFormat('en-CA', {
+          timeZone: user.timezone,
+        }).format(now);
+
+        const { data: advisory } = await supabase
+          .from('daily_advisory')
+          .select('recommended_focus, nudge_guidance')
+          .eq('user_id', user.id)
+          .eq('date', todayLocal)
+          .limit(1)
+          .single();
+
+        const effectiveFocus = user.focus || advisory?.recommended_focus || null;
+        const nudgeGuidance = advisory?.nudge_guidance || null;
+
         // === Calculate hours since last activity ===
         const { data: lastActivityRow } = await supabase
           .from('activity_log')
@@ -164,6 +197,9 @@ export async function GET(request: Request) {
           recentSMS,
           customPrompt: user.custom_prompt,
           focus: user.focus,
+          sprintTracks,
+          effectiveFocus,
+          nudgeGuidance,
         });
 
         // Check if AI decided to skip

@@ -18,6 +18,9 @@ interface NudgeContext {
   recentSMS: string[];
   customPrompt?: string | null;
   focus?: string | null;
+  sprintTracks?: string[];
+  effectiveFocus?: string | null;
+  nudgeGuidance?: string | null;
 }
 
 export async function generateNudge(context: NudgeContext): Promise<string> {
@@ -58,7 +61,12 @@ export async function generateNudge(context: NudgeContext): Promise<string> {
       .replace(/\{\{goals_summary\}\}/g, goalsSummary)
       .replace(/\{\{next_task\}\}/g, nextTask)
       .replace(/\{\{recent_conversation\}\}/g, recentConversation)
-      .replace(/\{\{focus\}\}/g, context.focus ? `TODAY'S FOCUS (set by user): "${context.focus}". Respect this above your own judgment.` : '');
+      .replace(/\{\{focus\}\}/g, context.focus ? `TODAY'S FOCUS (set by user): "${context.focus}". Respect this above your own judgment.` : '')
+      .replace(/\{\{sprint_tracks\}\}/g, context.sprintTracks && context.sprintTracks.length > 0
+        ? context.sprintTracks.map((t) => `• ${t}`).join('\n')
+        : '(no sprint tracks set)')
+      .replace(/\{\{effective_focus\}\}/g, context.effectiveFocus || '(no focus set for today)')
+      .replace(/\{\{nudge_guidance\}\}/g, context.nudgeGuidance || '(no advisor guidance available — use your best judgment on tone and angle)');
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
