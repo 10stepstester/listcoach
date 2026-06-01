@@ -402,16 +402,24 @@ export default function SettingsPage() {
                 <div>
                   <p className={`text-sm font-medium ${headingColor}`}>Google Calendar</p>
                   <p className={`text-xs ${subText}`}>
-                    {hasGoogleCalendar ? 'Skips nudges when you\'re in meetings' : 'Connect to skip nudges during meetings'}
+                    {hasGoogleCalendar ? 'Skips nudges when you\'re in meetings · reconnect if texts arrive during appointments' : 'Connect to skip nudges during meetings'}
                   </p>
                 </div>
               </div>
               {hasGoogleCalendar ? (
-                <div className="flex items-center gap-1.5 text-sm text-emerald-500 font-medium">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  Connected
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex items-center gap-1.5 text-sm text-emerald-500 font-medium">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Connected
+                  </div>
+                  <a
+                    href="/api/auth/google"
+                    className={`text-xs underline underline-offset-2 ${subText} hover:opacity-70 transition-opacity`}
+                  >
+                    Reconnect
+                  </a>
                 </div>
               ) : (
                 <a
