@@ -3,6 +3,12 @@ import { supabase } from '@/lib/db';
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.freebusy'];
 
+// Nudges are suppressed only during appointments on the patient calendar (Bookeo),
+// not personal blocks on the primary calendar. Free/busy can query any calendar the
+// user can access using the existing freebusy scope — no extra permission needed.
+const PATIENT_CALENDAR_ID =
+  'b4b249e38c5b3bfcc1c7e63e82ed0c96cdcb032cc83008a6c96985ce4277848d@group.calendar.google.com';
+
 function getOAuth2Client() {
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
@@ -81,12 +87,12 @@ async function checkFreeBusy(oauth2Client: any): Promise<boolean> {
     requestBody: {
       timeMin: windowStart.toISOString(),
       timeMax: windowEnd.toISOString(),
-      items: [{ id: 'primary' }],
+      items: [{ id: PATIENT_CALENDAR_ID }],
     },
   });
 
-  const busySlots = response.data.calendars?.primary?.busy || [];
-  const errors = response.data.calendars?.primary?.errors;
+  const busySlots = response.data.calendars?.[PATIENT_CALENDAR_ID]?.busy || [];
+  const errors = response.data.calendars?.[PATIENT_CALENDAR_ID]?.errors;
   if (errors && errors.length > 0) {
     console.error('[Google Calendar] FreeBusy API errors:', JSON.stringify(errors));
   }
