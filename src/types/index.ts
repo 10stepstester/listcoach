@@ -12,6 +12,10 @@ export interface User {
   dark_mode: boolean;
   custom_prompt: string | null;
   focus: string | null;
+  // Clinic hours = blackout windows carved out of active_hours (Phase 1).
+  clinic_days: string;   // ISO dow CSV, 1=Mon..7=Sun, e.g. '1,2,3,4'
+  clinic_start: string;  // 'HH:MM:SS'
+  clinic_end: string;    // 'HH:MM:SS'
   created_at: string;
 }
 
@@ -38,6 +42,11 @@ export interface Subtask {
   ai_summary?: string | null;
   proposed_for_daily_at?: string | null;
   daily_response?: string | null;
+  // Capacity tags assigned by generatePlan (Phase 1/3). Live on leaf to-dos.
+  est_minutes?: number | null;
+  lane?: 'practice' | 'dev' | null;
+  priority?: number | null;
+  is_emergency?: boolean;
   children?: Subtask[];
 }
 

@@ -157,3 +157,33 @@ Not max-MRR. Not bulletproof. Not rebrand-first (branding waits for customer val
 "follow your gut" (overrules warm-intro resistance; cold-only Path A makes the math work). It is the
 most-likely-to-make-real-money-in-150-days plan given the constraints. Do not drift into re-planning.
 `.trim();
+
+// =============================================================================
+// PLAN_PRACTICE — the practice-lane principle (operator cadence).
+// =============================================================================
+// PLAN_V4 above is the DEV principle (what to build, chatwithmybody first).
+// PLAN_PRACTICE is the PRACTICE principle: the recurring operator work that keeps
+// the clinic — the protected primary income — healthy. generatePlan reasons against
+// BOTH: dev items ranked by v4, practice items ranked by this cadence.
+// =============================================================================
+export const PLAN_PRACTICE = `
+# Practice operator cadence — the practice lane
+
+The clinic is the protected primary income (see v4 §5). Practice-lane work is the
+recurring, relationship-driven cadence that keeps it full. These are mostly small,
+high-leverage touches — not deep work. Rank them by revenue-protection and recency:
+
+- Reactivation / patient check-ins: text or call lapsed patients. Highest-leverage
+  practice action — a recovered patient beats a cold lead. Do these first.
+- Weekly patient email: one broadcast to the ~1,000-person list (Constant Contact).
+  Keeps the practice top-of-mind; ship it on cadence, don't let it slip a week.
+- Social content: short, consistent posts. Volume over polish. Defer if clinic-heavy.
+- Referral coffees: in-person relationship building with referral sources. Schedule,
+  don't improvise — these need a real time block.
+- GBP / reviews: keep the Google Business Profile fresh; ask happy patients for reviews.
+
+Practice items are the default lane for anything under the "Sprint" anchor or a parent
+named for a practice activity (reactivation, patient, email, social, referral, reviews).
+They should fit the gaps of a clinic day — micro-tasks between patients — not compete
+with deep dev blocks.
+`.trim();
