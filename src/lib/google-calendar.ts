@@ -140,6 +140,36 @@ async function queryBusy(oauth2Client: any, timeMin: Date, timeMax: Date): Promi
     .map((b) => ({ start: new Date(b.start!), end: new Date(b.end!) }));
 }
 
+type CalEvent = { start: Date; end: Date; title: string; allDay: boolean };
+
+// Read actual events (titles + boundaries) on the patient calendar. Unlike freebusy,
+// this exposes individual appointments and their gaps — what the choreographer needs.
+// Requires the calendar.readonly scope.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function queryEvents(oauth2Client: any, timeMin: Date, timeMax: Date): Promise<CalEvent[]> {
+  const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+  const res = await calendar.events.list({
+    calendarId: PATIENT_CALENDAR_ID,
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+  const events: CalEvent[] = [];
+  for (const e of res.data.items || []) {
+    const startStr = e.start?.dateTime || e.start?.date;
+    const endStr = e.end?.dateTime || e.end?.date;
+    if (!startStr || !endStr) continue;
+    events.push({
+      start: new Date(startStr),
+      end: new Date(endStr),
+      title: e.summary || '(no title)',
+      allDay: !e.start?.dateTime, // all-day events have a date, not a dateTime
+    });
+  }
+  return events;
+}
+
 // Build an authed client, run `fn`, and on auth failure refresh the token once and
 // retry — mirroring hasEventNow's refresh handling so the capacity helpers survive
 // an expired access token. Returns `fallback` if auth can't be established.
@@ -298,14 +328,17 @@ export async function getDayDensity(
 }
 
 // Where is Ladd right now relative to his patient sessions? This is the calendar
-// half of the choreographer's "which beat" decision. Looks back 2h (so an in-progress
-// session's full interval is returned — freebusy clips to timeMin) and 6h forward.
+// half of the choreographer's "which beat" decision. Reads actual TIMED events
+// (all-day markers like "OOO"/vacation are ignored — they don't mean "in session").
+// Looks back 4h so a long in-progress block is fully captured, and 6h forward.
 export interface CalendarMoment {
   freeNow: boolean;
   inSession: boolean;
   minutesUntilSessionEnds: number | null; // set when inSession
   gapAfterSession: number | null; // free minutes opening when the current session ends; null = open-ended
   minutesUntilNextBusy: number | null; // set when free; null = nothing scheduled in horizon
+  currentTitle: string | null; // title of the event in progress (context for the brain)
+  nextTitle: string | null; // title of the next upcoming event
 }
 
 export async function getCalendarMoment(
@@ -319,23 +352,27 @@ export async function getCalendarMoment(
     minutesUntilSessionEnds: null,
     gapAfterSession: null,
     minutesUntilNextBusy: null,
+    currentTitle: null,
+    nextTitle: null,
   };
 
   return withFreeBusyAuth(accessToken, refreshToken, userId, fallback, async (client) => {
     const now = new Date();
-    const lookback = new Date(now.getTime() - 2 * 60 * 60000);
+    const lookback = new Date(now.getTime() - 4 * 60 * 60000);
     const horizon = new Date(now.getTime() + 6 * 60 * 60000);
-    const busy = (await queryBusy(client, lookback, horizon)).sort(
-      (a, b) => a.start.getTime() - b.start.getTime()
-    );
+    const events = (await queryEvents(client, lookback, horizon))
+      .filter((e) => !e.allDay)
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    const current = busy.find((b) => b.start.getTime() <= now.getTime() && b.end.getTime() > now.getTime());
+    const current = events.find(
+      (e) => e.start.getTime() <= now.getTime() && e.end.getTime() > now.getTime()
+    );
     if (current) {
       const minutesUntilSessionEnds = Math.max(
         0,
         Math.round((current.end.getTime() - now.getTime()) / 60000)
       );
-      const next = busy.find((b) => b.start.getTime() >= current.end.getTime());
+      const next = events.find((e) => e.start.getTime() >= current.end.getTime());
       const gapAfterSession = next
         ? Math.max(0, Math.round((next.start.getTime() - current.end.getTime()) / 60000))
         : null; // open-ended after this session
@@ -345,10 +382,12 @@ export async function getCalendarMoment(
         minutesUntilSessionEnds,
         gapAfterSession,
         minutesUntilNextBusy: null,
+        currentTitle: current.title,
+        nextTitle: next?.title ?? null,
       };
     }
 
-    const upcoming = busy.filter((b) => b.start.getTime() > now.getTime());
+    const upcoming = events.filter((e) => e.start.getTime() > now.getTime());
     const minutesUntilNextBusy = upcoming.length
       ? Math.round((upcoming[0].start.getTime() - now.getTime()) / 60000)
       : null;
@@ -358,6 +397,8 @@ export async function getCalendarMoment(
       minutesUntilSessionEnds: null,
       gapAfterSession: null,
       minutesUntilNextBusy,
+      currentTitle: null,
+      nextTitle: upcoming[0]?.title ?? null,
     };
   });
 }

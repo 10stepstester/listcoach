@@ -51,6 +51,15 @@ and (c) optionally use titles ("Patient: …" vs "BLOCKED").
 - The Phase-1 `getCalendarMoment` / `classifyWindow` helpers stay, but their internals move
   from freebusy to an events read once the scope lands. `hasEventNow` (freebusy) can remain.
 
+### ✅ Calendar-read verified live (2026-06-05)
+After the scope upgrade + re-auth, `events.list` works. Real data showed individual
+appointments with names/durations (e.g. Mon: Steve Patterson 10:30–11:00, then a 2h gap
+1:00–3:00) where freebusy had only shown one merged block. Confirms we can see session
+boundaries, real gaps, and distinguish odd blocks (a 210-min event titled ".") from visits.
+- **Finding: `clinic_days` default (Mon–Thu) is already wrong — Ladd sees patients Friday.**
+  Don't trust a static clinic-days field; the live calendar is the source of truth for
+  "am I in clinic." Plan to drop/ignore `clinic_days` in favor of reading events.
+
 ### Heartbeat — keep the 10-minute cron (most failsafe)
 The existing `/api/cron/check-goals` 10-min external cron stays. We do **not** go to a
 1–2 min cron or self-scheduling. Rationale: 30/60-min sessions on clean boundaries make
