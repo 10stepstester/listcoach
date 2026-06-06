@@ -181,17 +181,24 @@ patient data.
 
 ## Build phases (re-sequenced)
 
-1. **Calendar edge helper** — add "minutes until current session ends"; classify the moment
-   (prime/go/check/silent eligibility).
-2. **fasciachart API-key door** — add shared-secret auth to `/api/reactivation/patients`;
-   listcoach client to fetch the top candidate.
-3. **In-flight task state** — table/columns + read/write helpers.
-4. **The brain** — rewrite `check-goals` tick: classify moment → choose beat → one Claude
-   call → short text or SKIP; honor active hours, cooldown, manual focus override.
-5. **Reactivity** — webhook updates in-flight state from replies; next beat adapts.
-6. **(Later) Gmail interrupts** — extend Google OAuth to Gmail read; scheduling-voicemail
-   preempts.
-7. **(Later) The "tab"** — read-only UI showing today's plan / current beat / what's eligible.
+1. ✅ **Calendar edge helper** — `getCalendarMoment`/`classifyWindow`, reads events.
+2. ✅ **fasciachart door** — `requireServiceTokenOrAuth` + `GET /api/reactivation/top`
+   (ranked) + open `log-contact`. Live on Railway; token in Railway + listcoach .env.local.
+3. ✅ **In-flight task state** — `nudge_state` table (RLS on) + `nudge-state.ts` helpers.
+4. ✅ **The brain** — `choreographer.ts` + `/api/cron/choreographer` (new endpoint, inert
+   until cutover). Dry-run verified live. Playbooks prompt-cached.
+5. ✅ **Reactivity** — `handleNudgeReply` + webhook branch (dormant until cutover).
+
+### ⬜ GO-LIVE (cutover) — deliberate, sends real SMS
+- Add `FASCIACHART_API_URL` + `LISTCOACH_SERVICE_TOKEN` to **listcoach Vercel** env.
+- Deploy listcoach (webhook reactivity + choreographer endpoint go live but stay dormant).
+- One live end-to-end test (trigger a real nudge to Ladd's phone).
+- Switch the cron-job.org 10-min job from `/api/cron/check-goals` → `/api/cron/choreographer`.
+- Then tune text length, escalation cadence, etc. from real texts.
+
+### ⬜ Later
+6. **Gmail interrupts** — scope already granted; scheduling-voicemail preempts a beat.
+7. **The "tab"** — read-only UI of today's plan / current beat / what's eligible.
 
 ## Open questions / parked
 - Exact storage shape for in-flight state (row vs columns) — decide at Phase 3.
