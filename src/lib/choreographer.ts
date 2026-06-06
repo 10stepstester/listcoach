@@ -10,7 +10,8 @@
 // =============================================================================
 import Anthropic from '@anthropic-ai/sdk';
 import { supabase } from '@/lib/db';
-import { PLAN_V4, PLAN_AMENDMENTS, PLAN_PRACTICE, planWeek } from '@/lib/plan';
+import { planWeek } from '@/lib/plan';
+import { getActivePlans } from '@/lib/plan-store';
 import {
   getCalendarMoment,
   classifyWindow,
@@ -266,6 +267,8 @@ ${todos.length ? todos.slice(0, 50).join('\n') : '(none)'}
 
 Decide the one beat (or skip). Output the JSON now.`;
 
+  const plans = await getActivePlans();
+
   let decision: ModelDecision;
   try {
     const response = await anthropic.messages.create({
@@ -275,7 +278,7 @@ Decide the one beat (or skip). Output the JSON now.`;
         { type: 'text', text: CORE_SYSTEM },
         {
           type: 'text',
-          text: `# DEV PLAYBOOK (rank dev items by this; chatwithmybody first)\n${PLAN_V4}\n\n# AMENDMENTS\n${PLAN_AMENDMENTS}\n\n# PRACTICE PLAYBOOK\n${PLAN_PRACTICE}`,
+          text: `# DEV PLAYBOOK (rank dev items by this; chatwithmybody first)\n${plans.v4}\n\n# AMENDMENTS\n${plans.amendments}\n\n# PRACTICE PLAYBOOK\n${plans.practice}`,
           cache_control: { type: 'ephemeral' },
         },
       ],

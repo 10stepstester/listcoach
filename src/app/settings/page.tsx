@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { User } from '@/types/index';
 import PromptEditor from '@/components/PromptEditor';
+import PlanEditor from '@/components/PlanEditor';
 
 type NudgeStyle = User['nudge_style'];
 
@@ -383,6 +384,12 @@ export default function SettingsPage() {
                 setCustomPrompt(p);
               }}
             />
+          </div>
+
+          {/* === CARD: Strategy / Plan === */}
+          <div className={`rounded-xl border ${cardBorder} ${cardBg} p-5 sm:p-6`}>
+            <h2 className={`text-sm font-semibold ${headingColor} uppercase tracking-wider mb-4`}>Strategy / Plan</h2>
+            <PlanEditor darkMode={dm} accentColor={accentColor} />
           </div>
 
           {/* === CARD: Integrations === */}
