@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { parseSmsReply } from '@/lib/claude';
 import { sendSMS } from '@/lib/twilio';
+import { getActiveTask } from '@/lib/nudge-state';
+import { handleNudgeReply } from '@/lib/choreographer';
 
 export async function POST(request: Request) {
   try {
@@ -89,6 +91,39 @@ export async function POST(request: Request) {
         });
       }
       // Not a Y/N response — fall through to normal intent parsing
+    }
+
+    // Choreographer reply: if a nudge task is in flight, this reply is about it.
+    // Interpret it (done / deferred / declined), update the in-flight state, and send
+    // an adaptive instant ack. Dormant until the choreographer cron is cut over (no
+    // active tasks exist before then). Falls through to list handling if unrelated.
+    const activeTask = await getActiveTask(user.id);
+    if (activeTask) {
+      const { data: recent } = await supabase
+        .from('sms_conversations')
+        .select('direction, message_text')
+        .eq('user_id', user.id)
+        .order('sent_at', { ascending: false })
+        .limit(8);
+      const convo = (recent || [])
+        .reverse()
+        .map((m) => `${m.direction === 'inbound' ? 'Ladd' : 'You'}: ${m.message_text}`)
+        .join('\n');
+
+      const ack = await handleNudgeReply(user.id, activeTask, body, convo);
+      if (ack) {
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'outbound', message_text: ack, goal_context: null });
+        await sendSMS(user.phone_number, ack);
+        return new NextResponse('<Response></Response>', {
+          headers: { 'Content-Type': 'text/xml' },
+        });
+      }
+      // ack null → reply wasn't about the task; fall through to normal list handling.
     }
 
     // Fetch user's goals with subtasks

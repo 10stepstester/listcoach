@@ -51,21 +51,41 @@ interface ReactivationCandidate {
   days_since_last_visit: number;
 }
 
-// --- top reactivation candidate from fasciachart -----------------------------
-async function getTopReactivation(): Promise<ReactivationCandidate | null> {
+// --- reactivation candidates from fasciachart --------------------------------
+async function getReactivationCandidates(limit = 1): Promise<ReactivationCandidate[]> {
   const url = process.env.FASCIACHART_API_URL;
   const token = process.env.LISTCOACH_SERVICE_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) return [];
   try {
-    const res = await fetch(`${url}/api/reactivation/top?limit=1`, {
+    const res = await fetch(`${url}/api/reactivation/top?limit=${limit}`, {
       headers: { 'x-service-token': token },
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = await res.json();
-    return data.patients?.[0] ?? null;
+    return (data.patients as ReactivationCandidate[]) ?? [];
   } catch (err) {
     console.error('[choreographer] reactivation fetch failed:', err);
-    return null;
+    return [];
+  }
+}
+
+async function getTopReactivation(): Promise<ReactivationCandidate | null> {
+  return (await getReactivationCandidates(1))[0] ?? null;
+}
+
+// Tell fasciachart a patient was contacted, so they stop resurfacing as top candidate.
+async function logReactivationContact(patientId: number, status = 'sent'): Promise<void> {
+  const url = process.env.FASCIACHART_API_URL;
+  const token = process.env.LISTCOACH_SERVICE_TOKEN;
+  if (!url || !token) return;
+  try {
+    await fetch(`${url}/api/reactivation/patients/${patientId}/log-contact`, {
+      method: 'POST',
+      headers: { 'x-service-token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+  } catch (err) {
+    console.error('[choreographer] log-contact failed:', err);
   }
 }
 
@@ -306,13 +326,112 @@ Decide the one beat (or skip). Output the JSON now.`;
   if (active && decision.continue_task && !decision.task_done) {
     await recordBeat(active.id, { stage });
   } else if (!decision.task_done) {
-    await startTask(userId, {
-      lane: lane ?? null,
-      task_label: label,
-      entity: null,
-      beat_stage: stage,
-    });
+    // Attach the patient identity to reactivation tasks so a "done" reply can log
+    // the contact back to fasciachart and stop the patient resurfacing.
+    const entity =
+      lane === 'reactivation' && reactivation
+        ? { patient_id: reactivation.id, name: reactivation.name, phone: reactivation.phone }
+        : null;
+    await startTask(userId, { lane: lane ?? null, task_label: label, entity, beat_stage: stage });
   }
 
   return result;
+}
+
+// =============================================================================
+// Reactivity (Phase 5): interpret a reply to the in-flight task and adapt.
+// Called from the SMS webhook when an active task exists. Returns the instant ack
+// to send, or null if the reply isn't about the task (fall through to list handling).
+// =============================================================================
+const REPLY_SYSTEM = `You interpret Ladd's SMS reply to a nudge about the task in flight, and write a SHORT acknowledgment that keeps momentum. You're a real-person accountability texter, not an app.
+
+Classify what his reply means about the in-flight task:
+- done: he did it / completed it.
+- deferred: he'll do it but is doing something else first ("call first", "in a sec").
+- declined: he can't / won't right now ("with a patient", "no", "later").
+- unrelated: the reply isn't about this task at all.
+
+Write a short ack:
+- done: celebrate in ~3 words AND, if a next item is given, hand it to him ("Nice — next is George Ruiz.").
+- deferred: acknowledge the detour and re-point ("Cool — then text Janet.").
+- declined: brief, no guilt ("All good. Later.").
+- unrelated: leave ack empty.
+
+Rules: VERY short. No preamble. Real names. Don't parrot his words.
+
+Output strict JSON: { "meaning": "done"|"deferred"|"declined"|"unrelated", "ack": "<short text or empty>" }`;
+
+export async function handleNudgeReply(
+  userId: string,
+  active: NudgeTask,
+  incoming: string,
+  convo: string
+): Promise<string | null> {
+  const currentPid =
+    active.entity && active.entity.patient_id != null ? Number(active.entity.patient_id) : null;
+
+  // For reactivation, fetch the next candidate so the ack can name it on "done".
+  let nextCandidate: ReactivationCandidate | null = null;
+  if (active.lane === 'reactivation') {
+    const cands = await getReactivationCandidates(2);
+    nextCandidate = cands.find((c) => c.id !== currentPid) ?? null;
+  }
+
+  let parsed: { meaning?: string; ack?: string };
+  try {
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 150,
+      system: REPLY_SYSTEM,
+      messages: [
+        {
+          role: 'user',
+          content: `# TASK IN FLIGHT
+"${active.task_label}" (lane: ${active.lane}, stage: ${active.beat_stage})
+
+# RECENT TEXTS
+${convo || '(none)'}
+
+# HIS REPLY
+"${incoming}"
+
+# NEXT REACTIVATION CANDIDATE (only relevant if done + reactivation)
+${nextCandidate ? nextCandidate.name : '(none)'}
+
+Output the JSON.`,
+        },
+      ],
+    });
+    const tb = resp.content.find((b) => b.type === 'text');
+    let raw = tb && 'text' in tb ? tb.text.trim() : '{}';
+    raw = raw.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    console.error('[choreographer] reply interpret failed:', err);
+    return null;
+  }
+
+  if (parsed.meaning === 'unrelated') return null; // let the list handler take it
+
+  if (parsed.meaning === 'done') {
+    if (active.lane === 'reactivation' && currentPid != null) {
+      await logReactivationContact(currentPid, 'sent');
+    }
+    await closeTask(active.id, 'done');
+    // Tee up the next reactivation patient as the new in-flight task.
+    if (active.lane === 'reactivation' && nextCandidate) {
+      await startTask(userId, {
+        lane: 'reactivation',
+        task_label: `Text ${nextCandidate.name}`,
+        entity: { patient_id: nextCandidate.id, name: nextCandidate.name, phone: nextCandidate.phone },
+        beat_stage: 'assigned',
+      });
+    }
+  } else if (parsed.meaning === 'declined') {
+    await closeTask(active.id, 'dropped');
+  }
+  // deferred / other: leave the task active — the next grid tick re-checks, reading
+  // this reply for context.
+
+  return parsed.ack || null;
 }
