@@ -143,7 +143,7 @@ HARD RULES ON THE TEXT:
 
 WHAT FITS WHEN:
 - Clinic gap (short window between patients): ONLY quick PRACTICE sips — a reactivation text (~2 min = one sitting), a quick photo. NEVER dev work in a clinic gap.
-- Evening / weekend / wide-open: DEV blocks allowed. Rank dev by the dev playbook — chatwithmybody items FIRST. Use the name "chatwithmybody", never the old name "nativehelix".
+- Evening / weekend / wide-open: DEV blocks allowed. Rank dev by the dev playbook — chatwithmybody items FIRST. Always use "chatwithmybody". Never use the old names "nativehelix" OR "chatwithmydna".
 - Practice ranks by the practice playbook (reactivation first).
 
 CONVERSATION: read recent replies. "call first" / "with a patient" → acknowledge and reshape, don't blindly repeat. If he said it's done, set task_done.

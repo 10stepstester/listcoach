@@ -1,39 +1,3 @@
-// =============================================================================
-// plan.ts — The locked strategic plan (v4) that drives the morning advisory.
-// =============================================================================
-// This is the single source of truth the morning-advisory route reasons against
-// to decide "the one text Ladd needs right now." The plan itself is LOCKED — do
-// not re-plan in code. Real-world corrections go in PLAN_AMENDMENTS below (dated),
-// so the advisory stays current without rewriting the locked artifact.
-//
-// PLAN_START is the plan's Week 1, Day 1. planWeek() maps today's date to the
-// plan week number so the advisory can anchor to the right week.
-// =============================================================================
-
-export const PLAN_START = new Date('2026-06-13T00:00:00-05:00'); // v5 Week 1, Day 1 (Sat, America/Chicago)
-
-/**
- * Dated corrections to the locked plan. The advisory must treat these as
- * overriding the plan body where they conflict. Add a new line; never edit v4.
- */
-export const PLAN_AMENDMENTS = `
-- 2026-05-31 — CE / NCBTMB approved-provider status is NO LONGER a critical path item.
-  Being an approved CE provider matters much less than v4 assumed. Therefore:
-  (a) The Week-3 "CE renewal not submitted = path dead" hard-kill is REMOVED.
-  (b) "Submit CE renewal" is no longer the Day-1 long pole — do not nag about it.
-  (c) The workshop's hook shifts from "get your CEs in person" to the TECHNIQUE
-      itself ("release frozen shoulders in 90 seconds, walk out worked on").
-      CE credit, if available, is now a nice-to-have, not the value proposition.
-`.trim();
-
-/** Compute which plan week a given date falls in (Week 1 = days 1–7). */
-export function planWeek(now: Date = new Date()): number {
-  const ms = now.getTime() - PLAN_START.getTime();
-  if (ms < 0) return 0; // before the plan started
-  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000)) + 1;
-}
-
-export const PLAN_V4 = `
 # 150-Day Playbook — chatwithmybody (primary) + Muscle Reset Workshop
 
 LLM-optimized playbook, **v5** — successor to "150-Day Plan v4." Restructured 2026-06-07 (see §9 Amendments).
@@ -46,7 +10,7 @@ Founder: Dr. Ladd Carlston. Plan start = **2026-06-13 (Sat) = Week 1**. Day 150 
 
 - **Scope:** Pick the **single highest-leverage task** to nudge during a work window. Two lanes: **[DEV]** (software in Claude Code) and **[OPS]** (marketing/admin/content). Rank across both.
 - **You are told the current plan week externally.** Map it to a phase (§2), then rank tasks (§3) against the current window length.
-- **The #1 bet is \`chatwithmybody\`** (renamed from \`chatwithmydna\`; broader than DNA). The Muscle Reset Workshop is a **late, secondary** event (Oct 17) — the founder's most fulfilling project, and the one whose *only* past failure was marketing, so protect the workshop **marketing** when time is tight.
+- **The #1 bet is `chatwithmybody`** (renamed from `chatwithmydna`; broader than DNA). The Muscle Reset Workshop is a **late, secondary** event (Oct 17) — the founder's most fulfilling project, and the one whose *only* past failure was marketing, so protect the workshop **marketing** when time is tight.
 - **Channel rule (locked):** chatwithmybody is acquired via **organic content + converting existing beta users** — NOT cold email. **Cold email is reserved entirely for the workshop.**
 - §8 (Reference) is **context, not tasks** — never nudge it.
 
@@ -90,9 +54,9 @@ Weeks run Sat–Fri. Workshop Oct 17 = day ~126. Day 150 ≈ Nov 10 (W22).
 Motion: Path A primary. Rebrand, build flat billing, convert beta users, start organic. Workshop: warm infra only.
 
 **[DEV]**
-- **P1 — Rebrand \`chatwithmydna\` → \`chatwithmybody\`** (domain + naming/copy across the existing app). Immediate, ungated. Live by ~Jun 26.
+- **P1 — Rebrand `chatwithmydna` → `chatwithmybody`** (domain + naming/copy across the existing app). Immediate, ungated. Live by ~Jun 26.
 - **P2 — Flat billing + client-count tiers** (Stripe). Base ~$89/mo + tier plans by active-client count, soft cap. Simple plan-selection, NOT live usage metering. Needed to bill beta converts.
-- **P3 — Compliance/infra hygiene:** apex domain → \`https://\` + HSTS (quick); geo-gate smoke test (assert the WA/NV block fires, so the false-alarm grep problem can't recur). Decide on Dockerfile commit \`7782d7c\` (lean revert if it changed build behavior; keep if inert).
+- **P3 — Compliance/infra hygiene:** apex domain → `https://` + HSTS (quick); geo-gate smoke test (assert the WA/NV block fires, so the false-alarm grep problem can't recur). Decide on Dockerfile commit `7782d7c` (lean revert if it changed build behavior; keep if inert).
 - **P4 — Repurpose demo / "Sarah"** for beta onboarding + content (lower priority now — it was built for cold-email demos that no longer exist).
 
 **[OPS]**
@@ -214,7 +178,7 @@ Apply BEFORE ranking. A fired trigger can reorder or cancel a whole lane/path.
 ## 8. Reference context (not nudge-able)
 
 ### Product — the #1 bet
-\`chatwithmybody\` (renamed from \`chatwithmydna\`; broader than DNA). An **AI client-knowledge layer** over genomic + health data: AI intake, smart dashboard, always-on AI support for client and practitioner. Killer feature: "Your client asks theirs. You ask yours. Both AIs know everything you've told them — and nothing you haven't."
+`chatwithmybody` (renamed from `chatwithmydna`; broader than DNA). An **AI client-knowledge layer** over genomic + health data: AI intake, smart dashboard, always-on AI support for client and practitioner. Killer feature: "Your client asks theirs. You ask yours. Both AIs know everything you've told them — and nothing you haven't."
 
 ### Market position (why the pricing/positioning is what it is)
 - Incumbents (Jane / Practice Better / Healthie, ~$35–155/mo) are the **practice-management backbone** — scheduling, charting, billing, telehealth, portal. Their AI is a **scribe for the practitioner**, not a client-facing assistant.
@@ -235,7 +199,7 @@ Apply BEFORE ranking. A fired trigger can reorder or cancel a whole lane/path.
 - Path A subhead: "Replace your intake form, your client dashboard, and ChatGPT — with one tool built for your practice. Your AI stays in your lane. ChatGPT doesn't."
 - Path A founder framing: "Built by a working chiropractor for his own clients."
 - Path B name: "The Muscle Reset Method — 90-Second Releases for Stuck Soft Tissue."
-- Path B hero \`[DRAFT — finalize]\`: "Release frozen shoulders in 90 seconds. Learn it hands-on — and walk out worked on." (No CE offered. CE is *available* later by partnering with a local PACE provider — e.g., Cleveland University–KC — which auto-qualifies in KS/MO/NE/ID and 30+ states; becoming a PACE provider yourself is $2K/yr and not worth it for one workshop. Not pursued for v1.)
+- Path B hero `[DRAFT — finalize]`: "Release frozen shoulders in 90 seconds. Learn it hands-on — and walk out worked on." (No CE offered. CE is *available* later by partnering with a local PACE provider — e.g., Cleveland University–KC — which auto-qualifies in KS/MO/NE/ID and 30+ states; becoming a PACE provider yourself is $2K/yr and not worth it for one workshop. Not pursued for v1.)
 
 ### Budget cap ($1,000) — revised
 Cold email is workshop-only now; organic Path A costs ~$0 in tools, freeing budget.
@@ -278,35 +242,3 @@ Not max-MRR. Not bulletproof. It is the most-likely-to-make-real-money-in-150-da
   - **Compliance shipped & verified** (deletion, 7-yr consent retention, 12-mo auto-delete, WA/NV geo-gate) — must-fix blockers now closed. Remaining: apex→https, geo-gate smoke test, Anthropic DPA, WA privacy policy (confirm vs geo-gate), MIMPA dissolution.
   - **Beta conversion elevated** to the #1 near-term revenue + pricing-data move and a kill-signal gate.
   - Market-position + B2B-moat context added.
-
-`.trim();
-
-// =============================================================================
-// PLAN_PRACTICE — the practice-lane principle (operator cadence).
-// =============================================================================
-// PLAN_V4 above is the DEV principle (what to build, chatwithmybody first).
-// PLAN_PRACTICE is the PRACTICE principle: the recurring operator work that keeps
-// the clinic — the protected primary income — healthy. generatePlan reasons against
-// BOTH: dev items ranked by v4, practice items ranked by this cadence.
-// =============================================================================
-export const PLAN_PRACTICE = `
-# Practice operator cadence — the practice lane
-
-The clinic is the protected primary income (see v4 §5). Practice-lane work is the
-recurring, relationship-driven cadence that keeps it full. These are mostly small,
-high-leverage touches — not deep work. Rank them by revenue-protection and recency:
-
-- Reactivation / patient check-ins: text or call lapsed patients. Highest-leverage
-  practice action — a recovered patient beats a cold lead. Do these first.
-- Weekly patient email: one broadcast to the ~1,000-person list (Constant Contact).
-  Keeps the practice top-of-mind; ship it on cadence, don't let it slip a week.
-- Social content: short, consistent posts. Volume over polish. Defer if clinic-heavy.
-- Referral coffees: in-person relationship building with referral sources. Schedule,
-  don't improvise — these need a real time block.
-- GBP / reviews: keep the Google Business Profile fresh; ask happy patients for reviews.
-
-Practice items are the default lane for anything under the "Sprint" anchor or a parent
-named for a practice activity (reactivation, patient, email, social, referral, reviews).
-They should fit the gaps of a clinic day — micro-tasks between patients — not compete
-with deep dev blocks.
-`.trim();
