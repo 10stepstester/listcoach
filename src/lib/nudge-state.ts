@@ -8,7 +8,9 @@
 import { supabase } from '@/lib/db';
 
 export type BeatStage = 'primed' | 'assigned' | 'checking' | 'done' | 'dropped';
-export type TaskLane = 'reactivation' | 'practice' | 'dev';
+// v5 lanes: reactivation (clinic cash) · ops (business marketing/admin/content) · dev
+// (software builds). Legacy 'practice' rows are normalized to 'ops' on read.
+export type TaskLane = 'reactivation' | 'ops' | 'dev';
 
 const ACTIVE_STAGES: BeatStage[] = ['primed', 'assigned', 'checking'];
 
@@ -40,7 +42,9 @@ export async function getActiveTask(userId: string): Promise<NudgeTask | null> {
     console.error('[nudge-state] getActiveTask error:', error);
     return null;
   }
-  return (data as NudgeTask) ?? null;
+  const task = (data as NudgeTask) ?? null;
+  if (task && (task.lane as unknown as string) === 'practice') task.lane = 'ops'; // legacy → ops
+  return task;
 }
 
 // Start a new in-flight task. Drops any existing active task first so only one is
