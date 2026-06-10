@@ -121,6 +121,10 @@ function describeSituation(m: CalendarMoment, sit: WindowSituation): string {
       }.`;
     case 'wide_open':
       return `Free now with nothing scheduled ahead (evening / weekend / open block).`;
+    case 'turnover':
+      return `Between patients — just wrapped one, next${
+        m.nextTitle ? ` ("${m.nextTitle}")` : ''
+      } in ~${m.minutesUntilNextBusy} min. Clinic turnover, not a work window.`;
     case 'mid_session':
       return `In a session ("${m.currentTitle ?? 'patient'}"), not ending soon.`;
     default:
@@ -138,8 +142,17 @@ function windowInfo(
   let minutes: number | null;
   if (minutesOverride !== undefined) minutes = minutesOverride;
   else if (sit === 'prime') minutes = m?.gapAfterSession ?? null;
-  else if (sit === 'open') minutes = m?.minutesUntilNextBusy ?? null;
+  else if (sit === 'open' || sit === 'turnover') minutes = m?.minutesUntilNextBusy ?? null;
   else minutes = null; // wide_open / other → open-ended
+
+  if (sit === 'turnover') {
+    return {
+      minutes,
+      line: `CLINIC TURNOVER — between patients, next one in ~${
+        minutes == null ? 'a few' : minutes
+      } min. At most ONE quick reactivation/check-in text (~2 min). NO dev/ops/build nudges — he's running his clinic. If you have no good reactivation text, SKIP.`,
+    };
+  }
 
   const sliver = minutes != null && minutes <= 45;
   if (sit === 'prime') {
@@ -188,6 +201,8 @@ THREE LANES — rank ACROSS all three; the best task wins, whatever the lane:
 - ops — the business's marketing / admin / content: convert beta users to paying, organic content, build the workshop chiro list, legal/admin. Many are SMALL and fit short windows.
 - dev — software builds in Claude Code (chatwithmybody first).
 Never interrupt a patient mid-session.
+
+CLINIC TURNOVER (read the WINDOW): when the window says he's between patients (turnover), he is still running his clinic — the gap is changeover time, not a work window. The ONLY acceptable nudge is a single ~2-min reactivation/check-in text. NO dev, NO ops, NO build steps — do not ping him about software while he's seeing patients. If there's no good reactivation text to send, SKIP.
 
 SELECTING THE TASK — use the DEV PLAYBOOK's own decision procedure (its §0):
 1. Map the current plan week (in NOW) → its phase. Before the plan start (week 0) → treat as Phase 1.
@@ -368,6 +383,22 @@ Decide the one beat (or skip). Output the JSON now.`;
   const beat = decision.beat || 'go';
   const lane = decision.lane;
   const label = decision.task_label || decision.text;
+
+  // Clinic-flow guard: between patients (turnover), or finishing a patient with only a
+  // short turnover gap after, the ONLY thing allowed out is a quick reactivation text.
+  // Hard-stop any dev/ops nudge (including a check-beat on an in-flight build) here so a
+  // chatty model can't ping him about software mid-clinic.
+  const clinicFlow =
+    situation === 'turnover' ||
+    (situation === 'prime' && moment?.gapAfterSession != null && moment.gapAfterSession <= 45);
+  if (clinicFlow && lane !== 'reactivation') {
+    return {
+      action: 'skip',
+      reason: `clinic turnover: suppressed ${lane ?? 'non-reactivation'} nudge between patients`,
+      situation,
+      dryRun,
+    };
+  }
 
   const result: ChoreographerDecision = {
     action: 'send',

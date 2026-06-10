@@ -337,6 +337,7 @@ export interface CalendarMoment {
   minutesUntilSessionEnds: number | null; // set when inSession
   gapAfterSession: number | null; // free minutes opening when the current session ends; null = open-ended
   minutesUntilNextBusy: number | null; // set when free; null = nothing scheduled in horizon
+  minutesSincePrevSession: number | null; // minutes since the most recent patient session ended; null = none in lookback
   currentTitle: string | null; // title of the event in progress (context for the brain)
   nextTitle: string | null; // title of the next upcoming event
 }
@@ -352,6 +353,7 @@ export async function getCalendarMoment(
     minutesUntilSessionEnds: null,
     gapAfterSession: null,
     minutesUntilNextBusy: null,
+    minutesSincePrevSession: null,
     currentTitle: null,
     nextTitle: null,
   };
@@ -363,6 +365,15 @@ export async function getCalendarMoment(
     const events = (await queryEvents(client, lookback, horizon))
       .filter((e) => !e.allDay)
       .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Most recent patient session that has already ended — lets the classifier tell a
+    // turnover gap (just-finished a patient, another due soon) from a real open block.
+    const prevSession = events
+      .filter((e) => e.end.getTime() <= now.getTime())
+      .sort((a, b) => b.end.getTime() - a.end.getTime())[0];
+    const minutesSincePrevSession = prevSession
+      ? Math.round((now.getTime() - prevSession.end.getTime()) / 60000)
+      : null;
 
     const current = events.find(
       (e) => e.start.getTime() <= now.getTime() && e.end.getTime() > now.getTime()
@@ -382,6 +393,7 @@ export async function getCalendarMoment(
         minutesUntilSessionEnds,
         gapAfterSession,
         minutesUntilNextBusy: null,
+        minutesSincePrevSession,
         currentTitle: current.title,
         nextTitle: next?.title ?? null,
       };
@@ -397,6 +409,7 @@ export async function getCalendarMoment(
       minutesUntilSessionEnds: null,
       gapAfterSession: null,
       minutesUntilNextBusy,
+      minutesSincePrevSession,
       currentTitle: null,
       nextTitle: upcoming[0]?.title ?? null,
     };
@@ -407,16 +420,20 @@ export async function getCalendarMoment(
 //   prime       — in a session ending soon, with a usable gap after  → send a "get ready"
 //   open        — free now, bounded usable window before next session → go / check
 //   wide_open   — free now, nothing scheduled (evening / weekend)      → go / check, bigger work ok
+//   turnover    — free now, but in a SHORT gap sandwiched between two patient sessions → reactivation sliver only
 //   mid_session — in a session, not ending soon                        → stay silent
 //   no_window   — free or ending soon, but the window is too short     → stay silent
-export type WindowSituation = 'prime' | 'open' | 'wide_open' | 'mid_session' | 'no_window';
+export type WindowSituation = 'prime' | 'open' | 'wide_open' | 'turnover' | 'mid_session' | 'no_window';
 
 export function classifyWindow(
   m: CalendarMoment,
-  opts: { primeLeadMin?: number; minWindowMin?: number } = {}
+  opts: { primeLeadMin?: number; minWindowMin?: number; clinicGapMax?: number } = {}
 ): WindowSituation {
   const primeLeadMin = opts.primeLeadMin ?? 12;
   const minWindowMin = opts.minWindowMin ?? 5;
+  // A free stretch <= this, bounded by a patient session on each side, is treated as
+  // between-patient turnover (notes / next patient checking in), not a work window.
+  const clinicGapMax = opts.clinicGapMax ?? 45;
 
   if (m.inSession) {
     if (m.minutesUntilSessionEnds != null && m.minutesUntilSessionEnds <= primeLeadMin) {
@@ -426,6 +443,14 @@ export function classifyWindow(
     return 'mid_session';
   }
   if (m.minutesUntilNextBusy == null) return 'wide_open';
+  // Short gap with a just-finished patient behind and another patient ahead → clinic
+  // turnover: he's still running his clinic, the "gap" is changeover time.
+  if (
+    m.minutesSincePrevSession != null &&
+    m.minutesSincePrevSession + m.minutesUntilNextBusy <= clinicGapMax
+  ) {
+    return 'turnover';
+  }
   if (m.minutesUntilNextBusy >= minWindowMin) return 'open';
   return 'no_window';
 }
