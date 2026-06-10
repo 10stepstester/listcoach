@@ -48,6 +48,7 @@ Founder: Dr. Ladd Carlston. Plan start = **2026-06-13 (Sat) = Week 1**. Day 150 
 - **You are told the current plan week externally.** Map it to a phase (§2), then rank tasks (§3) against the current window length.
 - **The #1 bet is \`chatwithmybody\`** (renamed from \`chatwithmydna\`; broader than DNA). The Muscle Reset Workshop is a **late, secondary** event (Oct 17) — the founder's most fulfilling project, and the one whose *only* past failure was marketing, so protect the workshop **marketing** when time is tight.
 - **Channel rule (locked):** chatwithmybody is acquired via **organic content + converting existing beta users** — NOT cold email. **Cold email is reserved entirely for the workshop.**
+- **Clinic growth is a STANDING track, every phase.** A consistently booked-out clinic is the founder's primary income and best hourly rate — it funds everything else. Clinic-growth tasks (check-ins, referral coffees, GBP/reviews — see §8 "Clinic growth") rank alongside Path A OPS tasks and are the default fill for weekday slivers. Floor: ~3 clinic-growth actions/week.
 - §8 (Reference) is **context, not tasks** — never nudge it.
 
 ### Nudge decision procedure
@@ -98,7 +99,10 @@ Motion: Path A primary. Rebrand, build flat billing, convert beta users, start o
 **[OPS]**
 - **P1 — Convert beta cohort (Jerry/Joyce/Janet) → founding customers.** Fastest revenue, and the real per-active-client **token-cost data** that sets the tier prices. If they won't pay, that's the cheapest possible signal (see §7).
 - **P2 — Start practitioner-targeted organic content** (build-in-public: "chiropractor who built his own AI tools, here's how I run a cash-pay practice"). Slow burn — start now. Measure practitioners who DM/sign up, not views.
-- **P3 — Reactivation texts** to lapsed clinic patients (clinic cash, sliver-window task).
+- **P3 — Clinic growth (standing track, sliver-sized — see §8 for MO rules):**
+  - **Patient check-ins** — memory-based personal texts to lapsed patients (NO CTA, NO link, never "we miss you"). Front-load W1–3, then taper. Measure replies, not bookings.
+  - **Referral coffees** — 2/week with Tier-1 partners (LMTs, pelvic-floor PTs, run-store/CrossFit staff). Don't ask for referrals — send THEM a patient first. Expect 3–5 month lag.
+  - **GBP + review velocity** — optimize Google Business Profile; ask happy patients for reviews. Target 15–25 new reviews in 90 days. Best local-SEO lever this quarter.
 - **P4 — Build workshop chiro list + begin warming Google Workspace inboxes** (for Phase 4 outreach). Parallel ops.
 - **Legal (mostly not your keyboard):** Anthropic DPA; confirm with attorney whether the WA geo-gate obviates the WA-specific privacy policy or just backstops it; **MIMPA dissolution (mid-June — hard legal deadline, don't let the build crowd it out).**
 
@@ -116,7 +120,8 @@ Motion: Path A primary (organic + convert inbound). Build workshop machinery in 
 **[OPS]**
 - **P1 — Organic content engine:** consistent practitioner-targeted posting; convert inbound interest. This is Path A's acquisition workhorse.
 - **P2 — Finalize workshop chiro list; finish inbox warmup; write workshop cold-email sequence** (4 touches / 14 days).
-- **P3 — Testimonials** from beta/founding customers.
+- **P3 — Clinic growth continues (standing track):** referral coffees keep going (the 3–5 month lag from Phase 1 coffees pays off here), review velocity maintained, check-ins as slivers allow.
+- **P4 — Testimonials** from beta/founding customers.
 
 ### Phase 4 — Workshop outreach live + Path A continues (W13–18, Sep 5 – Oct 16)
 Motion: Path A organic continues; workshop cold email goes live and intensifies into Oct 17.
@@ -151,6 +156,7 @@ Motion: Workshop event Oct 17, then Path A final push + metrics.
 - [ ] **[DEV]** Flat billing + client-count tiers (Stripe) — Phase 1, before billing beta converts
 - [ ] **[DEV]** Apex → https + HSTS; geo-gate smoke test — Phase 1, sliver window
 - [ ] **[OPS]** Convert beta cohort → founding customers — Phase 1
+- [ ] **[OPS]** Clinic growth standing track running (check-ins + 2 coffees/wk + GBP reviews) — all phases
 - [ ] **[OPS]** Organic content engine started — Phase 1, ongoing
 - [ ] **[OPS]** Workshop chiro list built + GW inboxes warming — Phases 1–3
 - [ ] **[DEV]** Path A product polish — Phases 3–5
@@ -249,6 +255,14 @@ Cold email is workshop-only now; organic Path A costs ~$0 in tools, freeing budg
 - Weekends: 15–20 hrs when pushing → main deep-build block; reserve hard builds here.
 - Founder runs ~80-hr total weeks (clinic + build); cap the *plan* at 20/16 effective.
 
+### Clinic growth (standing track — advisor-vetted Sprint v2, 2026-06-01 panel)
+The founder's MO after 23 years: 30-min visits, cash-pay, NO specials, NO treatment plans, NO discount packages, NO cheesy reactivation emails. Every clinic-growth nudge must respect this. The three vetted motions:
+- **Check-ins:** personal, memory-based texts ("thought of you when I saw another runner with that same R hip thing — how's it holding up?"). No CTA, no link, no script. Calls 1–30 are warm; beyond ~100 risks burning goodwill in a small KC market — front-load then taper. Success metric = 35–45% reply rate.
+- **Referral coffees:** Tier-1 only — LMTs, pelvic-floor PTs, run-store/CrossFit/Pilates staff near either location. Skip functional MDs and other chiros. Never ask for referrals at the coffee; send them a patient first (reciprocity does the work). Realistic lag: 3–5 months to first referral.
+- **GBP + reviews:** Google Business Profile fully optimized; steady ask-cadence to happy patients. 15–25 new reviews in 90 days moves local-pack ranking. This replaces blog/SEO work for this plan period.
+- **Explicitly NOT in plan:** video reels schedule, SEO blog cluster, suboccipital tool sales (all cut by the panel as hour-vampires or identity-conflicts).
+- **Why this track exists:** a booked-out clinic is the highest-confidence revenue lever the founder has. It is not a fallback — it runs in parallel with Path A every phase.
+
 ### Beta cohort (Jerry, Joyce, Janet, etc.)
 Phase 1: one email — convert to founding rate (locked 12 mo) or sunset in 30 days. This is now the **#1 near-term revenue + pricing-data move**, not a footnote. Responders → testimonials.
 
@@ -278,7 +292,9 @@ Not max-MRR. Not bulletproof. It is the most-likely-to-make-real-money-in-150-da
   - **Compliance shipped & verified** (deletion, 7-yr consent retention, 12-mo auto-delete, WA/NV geo-gate) — must-fix blockers now closed. Remaining: apex→https, geo-gate smoke test, Anthropic DPA, WA privacy policy (confirm vs geo-gate), MIMPA dissolution.
   - **Beta conversion elevated** to the #1 near-term revenue + pricing-data move and a kill-signal gate.
   - Market-position + B2B-moat context added.
-
+- **2026-06-10:**
+  - **Clinic growth restored as a standing track** (it was orphaned when v5 superseded Sprint v2). Three advisor-vetted motions — memory-based check-ins, Tier-1 referral coffees (2/wk), GBP + review velocity — now run in every phase alongside Path A, with a floor of ~3 actions/week and MO constraints documented in §8. Reactivation-texts P3 item expanded into this track. Rationale: a consistently booked-out clinic is the founder's primary income and best hourly rate; it was under-weighted as "protected baseline only."
+  - **Listcoach declared personal infrastructure, permanently** — never a SaaS candidate. Feature-frozen after current fixes; it exists solely to execute this plan.
 `.trim();
 
 // =============================================================================

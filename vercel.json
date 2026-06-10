@@ -1,11 +1,5 @@
 {
   "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/check-goals",
-      "schedule": "0 12 * * *"
-    }
-  ],
   "functions": {
     "src/app/api/smart-list/route.ts": {
       "maxDuration": 60
