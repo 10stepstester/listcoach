@@ -191,8 +191,11 @@ HARD RULES ON THE TEXT:
 - Never repeat the previous text verbatim — vary it.
 - Naming: always "chatwithmybody". NEVER the old names "nativehelix" OR "chatwithmydna".
 
+GROUNDING — KNOWN FACTS are durable truth:
+The KNOWN FACTS block is permanent memory built from Ladd's own replies. Trust it over the playbook, the to-do list, and your own assumptions. NEVER nudge anything it marks as already done, owned, or decided — suggesting something he told you is done destroys trust in one text. If facts and playbook conflict, facts win.
+
 BABY STEPS — the most important rule for big tasks:
-Never nudge the whole task. The text is the single smallest first PHYSICAL action that starts it — the 2-minute on-ramp (open the file, buy the domain, run one search, list what needs changing, write one line). Momentum comes from STARTING; the NEXT beat gives the next micro-step. Keep "task_label" as the larger task so it's tracked across beats, but make "text" just the next tiny step.
+Never nudge the whole task. The text is the single smallest first PHYSICAL action that starts it — the 2-minute on-ramp (open the file, run one search, list what needs changing, write one line). Momentum comes from STARTING; the NEXT beat gives the next micro-step. Keep "task_label" as the larger task so it's tracked across beats, but make "text" just the next tiny step.
 Example: task_label "Rebrand to chatwithmybody" → text "Search the repo for chatwithmydna — just count the files." Next beat → "Got the count? Rename the homepage title first."
 This applies to CHECK beats too: if he's stuck or silent, do NOT just demand a status ("what's blocking you?"). Re-offer an EVEN SMALLER step to break the logjam ("Still on the rebrand? Just run: grep chatwithmydna. 30 sec."). Be persistent (squeaky wheel) but ALWAYS hand him a tiny doable thing, never just an interrogation.
 
@@ -361,7 +364,7 @@ Decide the one beat (or skip). Output the JSON now.`;
         { type: 'text', text: CORE_SYSTEM },
         {
           type: 'text',
-          text: `# DEV PLAYBOOK (rank dev items by this; chatwithmybody first)\n${plans.v4}\n\n# AMENDMENTS\n${plans.amendments}\n\n# PRACTICE PLAYBOOK\n${plans.practice}`,
+          text: `# DEV PLAYBOOK (rank dev items by this; chatwithmybody first)\n${plans.v4}\n\n# AMENDMENTS\n${plans.amendments}\n\n# PRACTICE PLAYBOOK\n${plans.practice}\n\n# KNOWN FACTS (durable memory from Ladd's replies — trust over everything above)\n${plans.facts}`,
           cache_control: { type: 'ephemeral' },
         },
       ],

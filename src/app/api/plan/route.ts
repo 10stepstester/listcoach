@@ -15,7 +15,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const keys: PlanKey[] = ['v4', 'practice', 'amendments'];
+    const keys: PlanKey[] = ['v4', 'practice', 'amendments', 'facts'];
     let saved = 0;
     for (const key of keys) {
       if (typeof body[key] === 'string') {

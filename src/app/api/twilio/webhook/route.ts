@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { supabase } from '@/lib/db';
 import { parseSmsReply } from '@/lib/claude';
 import { sendSMS } from '@/lib/twilio';
 import { getActiveTask } from '@/lib/nudge-state';
 import { handleNudgeReply } from '@/lib/choreographer';
+import { scribeReply } from '@/lib/scribe';
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +32,11 @@ export async function POST(request: Request) {
         { headers: { 'Content-Type': 'text/xml' } }
       );
     }
+
+    // Scribe (durable memory): after the response is sent, check whether this reply
+    // established anything permanently true and append it to the facts doc. Runs on
+    // every inbound path; failures are logged inside and never affect the reply.
+    after(() => scribeReply(user.id, body, user.timezone));
 
     // Check for pending daily prompt before normal intent parsing
     const { data: pendingDaily } = await supabase

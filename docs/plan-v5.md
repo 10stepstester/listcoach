@@ -258,4 +258,5 @@ Not max-MRR. Not bulletproof. It is the most-likely-to-make-real-money-in-150-da
   - Market-position + B2B-moat context added.
 - **2026-06-10:**
   - **Clinic growth restored as a standing track** (it was orphaned when v5 superseded Sprint v2). Three advisor-vetted motions — memory-based check-ins, Tier-1 referral coffees (2/wk), GBP + review velocity — now run in every phase alongside Path A, with a floor of ~3 actions/week and MO constraints documented in §8. Reactivation-texts P3 item expanded into this track. Rationale: a consistently booked-out clinic is the founder's primary income and best hourly rate; it was under-weighted as "protected baseline only."
-  - **Listcoach declared personal infrastructure, permanently** — never a SaaS candidate. Feature-frozen after current fixes; it exists solely to execute this plan.
+  - **Listcoach declared personal infrastructure, permanently** — never a SaaS candidate. It exists solely to execute this plan.
+- **2026-06-10 (evening):** Listcoach feature-freeze lifted — the nudge system needed grounding (it suggested buying an already-owned domain). Added durable reply-memory: a scribe captures facts from Ladd's texts instantly, compacts nightly, and the choreographer reads them every tick. Still personal-only, never SaaS.

@@ -7,7 +7,7 @@ interface Props {
   accentColor: string;
 }
 
-type Plans = { v4: string; practice: string; amendments: string };
+type Plans = { v4: string; practice: string; amendments: string; facts: string };
 
 const SECTIONS: { key: keyof Plans; label: string; hint: string; rows: number }[] = [
   {
@@ -27,6 +27,12 @@ const SECTIONS: { key: keyof Plans; label: string; hint: string; rows: number }[
     label: 'Amendments',
     hint: 'Dated corrections that override the plan where they conflict.',
     rows: 5,
+  },
+  {
+    key: 'facts',
+    label: 'Known Facts (memory)',
+    hint: 'What the choreographer knows — auto-captured from your text replies, compacted nightly. Edit freely to correct or remove anything wrong.',
+    rows: 8,
   },
 ];
 

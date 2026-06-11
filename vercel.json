@@ -1,6 +1,15 @@
 {
   "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/scribe-compact",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "functions": {
+    "src/app/api/cron/scribe-compact/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/smart-list/route.ts": {
       "maxDuration": 60
     },
