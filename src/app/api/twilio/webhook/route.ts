@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     if (activeTask && isGoReply(body) && getDispatch(activeTask)?.status === 'offered') {
       const queued = await queueDispatch(activeTask);
       if (queued) {
-        const ack = `🤖 On it — "${activeTask.task_label}" is queued. The agent picks it up within ~30 min and I'll text you the PR.`;
+        const ack = `🤖 On it — "${activeTask.task_label}" is queued. The agent picks it up within the hour and I'll text you the PR.`;
         await supabase
           .from('sms_conversations')
           .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
