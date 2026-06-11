@@ -143,7 +143,7 @@ export async function completeDispatch(
     await appendFacts([
       `${today}: Agent completed "${task.task_label}" — ${report.summary}${report.prUrl ? ` (${report.prUrl})` : ''}. Awaiting Ladd's review/merge.`,
     ]);
-    sms = `🤖 Done: ${task.task_label}. ${report.summary}${report.prUrl ? `\nReview: ${report.prUrl}` : ''}`;
+    sms = `🤖 Done: ${task.task_label}. ${report.summary}${report.prUrl ? `\nSee the changes (nothing is live until approved): ${report.prUrl}` : ''}`;
   } else if (report.status === 'blocked') {
     sms = `🤖 Need input on "${task.task_label}": ${report.summary}`;
   } else {
