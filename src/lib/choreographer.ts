@@ -29,6 +29,7 @@ import {
   type BeatStage,
 } from '@/lib/nudge-state';
 import { sendSMS } from '@/lib/twilio';
+import { getDispatch, AGENT_REPO } from '@/lib/agent-dispatch';
 import type { Goal, Subtask } from '@/types/index';
 
 const anthropic = new Anthropic();
@@ -42,6 +43,7 @@ export interface ChoreographerDecision {
   text?: string;
   lane?: TaskLane;
   taskLabel?: string;
+  agentBrief?: string;
   situation?: WindowSituation;
   dryRun?: boolean;
 }
@@ -195,11 +197,17 @@ HARD RULES ON THE TEXT:
 GROUNDING — KNOWN FACTS are durable truth:
 The KNOWN FACTS block is permanent memory built from Ladd's own replies. Trust it over the playbook, the to-do list, and your own assumptions. NEVER nudge anything it marks as already done, owned, or decided — suggesting something he told you is done destroys trust in one text. If facts and playbook conflict, facts win.
 
-BABY STEPS — the most important rule for big tasks:
-Never nudge the whole task. The text is the single smallest first PHYSICAL action that starts it — the 2-minute on-ramp (open the file, run one search, list what needs changing, write one line). Momentum comes from STARTING; the NEXT beat gives the next micro-step. Keep "task_label" as the larger task so it's tracked across beats, but make "text" just the next tiny step.
-Example: task_label "Rebrand to chatwithmybody" → text "Search the repo for chatwithmydna — just count the files." Next beat → "Got the count? Rename the homepage title first."
+AGENT DISPATCH — dev software tasks go to the cloud agent, not to Ladd's thumbs:
+You have a cloud coding agent that can do repo work itself (branch + PR for Ladd's review). NEVER walk Ladd through code edits over SMS — no "open the file", "run grep", "paste the output" texts. That failed badly. For a dev-lane task that is concrete software work (renames, code changes, config, a page, a route):
+- The text OFFERS the agent, very short: name the task + reply GO. ("2-hr window. I can do the rebrand myself — PR for your review. GO?")
+- Include "agent_brief" in the JSON: a self-contained spec for the agent — what to change, definition of done, what NOT to touch. The agent has the repo and its CLAUDE.md; the brief is the task spec, not repo orientation.
+- TASK IN FLIGHT shows the dispatch state. offered → a check beat may re-offer briefly ("Rebrand offer still open — GO when ready."), still with agent_brief. queued/running → the agent is on it: do NOT nudge that task; pick a different lane or skip.
+- Dev work that genuinely needs Ladd's hands (a registrar/DNS dashboard, buying something, an account approval, a judgment decision) is NOT dispatchable — nudge it as a normal tiny action, no agent_brief.
+
+BABY STEPS — the most important rule for big NON-DEV tasks:
+Never nudge the whole task. The text is the single smallest first PHYSICAL action that starts it — the 2-minute on-ramp (draft one line, find one contact, send one email). Momentum comes from STARTING; the NEXT beat gives the next micro-step. Keep "task_label" as the larger task so it's tracked across beats, but make "text" just the next tiny step.
 The TASK IN FLIGHT block shows the current micro-step and the last one he completed — hand the NEXT step forward from there; never re-nudge a step he already confirmed.
-This applies to CHECK beats too: if he's stuck or silent, do NOT just demand a status ("what's blocking you?"). Re-offer an EVEN SMALLER step to break the logjam ("Still on the rebrand? Just run: grep chatwithmydna. 30 sec."). Be persistent (squeaky wheel) but ALWAYS hand him a tiny doable thing, never just an interrogation.
+This applies to CHECK beats too: if he's stuck or silent, do NOT just demand a status ("what's blocking you?"). Re-offer an EVEN SMALLER step to break the logjam. Be persistent (squeaky wheel) but ALWAYS hand him a tiny doable thing, never just an interrogation. (Dev software tasks: see AGENT DISPATCH instead — offer the agent, don't micro-step him through code.)
 
 THREE LANES — rank ACROSS all three; the best task wins, whatever the lane:
 - reactivation — clinic cash: text a lapsed patient (sourced from the clinic system in the input; ~2 min; fits clinic slivers).
@@ -225,7 +233,7 @@ CONVERSATION: read recent replies. "call first" / "with a patient" → acknowled
 JUNK: if the only candidates are vague fragments ("Mirror", "Test", "Untitled"), skip — a smart picker ignores junk instead of surfacing it.
 
 Output STRICT JSON only:
-{ "action": "send"|"skip", "reason": "<short>", "beat": "prime"|"go"|"check", "continue_task": <bool>, "task_done": <bool>, "lane": "reactivation"|"ops"|"dev", "task_label": "<short label e.g. 'Email Jerry re: founding rate'>", "text": "<the SMS — very short>" }
+{ "action": "send"|"skip", "reason": "<short>", "beat": "prime"|"go"|"check", "continue_task": <bool>, "task_done": <bool>, "lane": "reactivation"|"ops"|"dev", "task_label": "<short label e.g. 'Email Jerry re: founding rate'>", "text": "<the SMS — very short>", "agent_brief": "<ONLY for dispatchable dev software tasks: self-contained spec for the cloud agent>" }
 When action is "skip", only "action" and "reason" are required.`;
 
 interface ModelDecision {
@@ -237,6 +245,7 @@ interface ModelDecision {
   lane?: TaskLane;
   task_label?: string;
   text?: string;
+  agent_brief?: string;
 }
 
 export async function runChoreographer(
@@ -341,7 +350,15 @@ ${
   active
     ? `label: "${active.task_label}" | lane: ${active.lane} | stage: ${active.beat_stage} | beats_sent: ${active.beats_sent} | last_beat_at: ${active.last_beat_at ?? 'never'}
 current micro-step: ${typeof active.entity?.current_step === 'string' ? `"${active.entity.current_step}"` : '(none recorded)'}
-last completed micro-step: ${typeof active.entity?.last_completed_step === 'string' ? `"${active.entity.last_completed_step}"` : '(none)'}`
+last completed micro-step: ${typeof active.entity?.last_completed_step === 'string' ? `"${active.entity.last_completed_step}"` : '(none)'}
+agent dispatch: ${(() => {
+        const d = getDispatch(active);
+        if (!d) return '(none — offer the agent if this is dispatchable dev work)';
+        if (d.status === 'offered') return 'OFFERED — awaiting his GO; a brief re-offer is ok';
+        if (d.status === 'queued' || d.status === 'running')
+          return `${d.status.toUpperCase()} — the agent is on it; do NOT nudge this task, pick another lane or skip`;
+        return `${d.status} — ${d.summary ?? ''}`;
+      })()}`
     : '(none — pick a fresh one if a beat fits)'
 }
 
@@ -363,7 +380,9 @@ Decide the one beat (or skip). Output the JSON now.`;
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 400,
+      // Sized for the JSON + a full agent_brief (an offer's brief can run several
+      // hundred tokens; 400 truncated mid-brief and the JSON parse failed).
+      max_tokens: 1500,
       system: [
         { type: 'text', text: CORE_SYSTEM },
         {
@@ -391,6 +410,21 @@ Decide the one beat (or skip). Output the JSON now.`;
   const lane = decision.lane;
   const label = decision.task_label || decision.text;
 
+  // Agent-at-work guard: while the agent is queued/running on the in-flight task,
+  // nothing about that task goes out — code-enforced so a chatty model can't nag
+  // work that's already being done for him.
+  const activeDispatch = getDispatch(active);
+  const agentBusy =
+    activeDispatch && (activeDispatch.status === 'queued' || activeDispatch.status === 'running');
+  if (agentBusy && (decision.continue_task || label === active?.task_label)) {
+    return {
+      action: 'skip',
+      reason: `agent is ${activeDispatch.status} on "${active?.task_label}" — no nudges while it works`,
+      situation,
+      dryRun,
+    };
+  }
+
   // Clinic-flow guard: between patients (turnover), or finishing a patient with only a
   // short turnover gap after, the ONLY thing allowed out is a quick reactivation text.
   // Hard-stop any dev/ops nudge (including a check-beat on an in-flight build) here so a
@@ -414,6 +448,7 @@ Decide the one beat (or skip). Output the JSON now.`;
     text: decision.text,
     lane,
     taskLabel: label,
+    agentBrief: decision.agent_brief,
     situation,
     dryRun,
   };
@@ -429,6 +464,21 @@ Decide the one beat (or skip). Output the JSON now.`;
   // Stage mapping: prime → primed, go → assigned, check → checking.
   const stage: BeatStage = beat === 'prime' ? 'primed' : beat === 'check' ? 'checking' : 'assigned';
 
+  // An agent_brief makes this nudge an agent OFFER — recorded on the task so the
+  // webhook can queue it the moment Ladd replies GO. Re-offers refresh the brief
+  // (but never downgrade a queued/running/finished dispatch back to offered).
+  const dispatchPatch =
+    decision.agent_brief && lane === 'dev' && (!activeDispatch || activeDispatch.status === 'offered')
+      ? {
+          dispatch: {
+            status: 'offered' as const,
+            brief: decision.agent_brief,
+            repo: AGENT_REPO,
+            offered_at: new Date().toISOString(),
+          },
+        }
+      : {};
+
   if (decision.task_done && active) {
     await closeTask(active.id, 'done');
   }
@@ -437,7 +487,7 @@ Decide the one beat (or skip). Output the JSON now.`;
     // reply interpreter judges "done" against the step, not the umbrella label.
     await recordBeat(active.id, {
       stage,
-      entity: { ...(active.entity ?? {}), current_step: decision.text },
+      entity: { ...(active.entity ?? {}), current_step: decision.text, ...dispatchPatch },
     });
   } else if (!decision.task_done) {
     // Attach the patient identity to reactivation tasks so a "done" reply can log
@@ -449,7 +499,7 @@ Decide the one beat (or skip). Output the JSON now.`;
     await startTask(userId, {
       lane: lane ?? null,
       task_label: label,
-      entity: { ...entity, current_step: decision.text },
+      entity: { ...entity, current_step: decision.text, ...dispatchPatch },
       beat_stage: stage,
     });
   }

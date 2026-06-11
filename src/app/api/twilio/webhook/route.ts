@@ -6,6 +6,7 @@ import { sendSMS } from '@/lib/twilio';
 import { getActiveTask } from '@/lib/nudge-state';
 import { handleNudgeReply } from '@/lib/choreographer';
 import { scribeReply } from '@/lib/scribe';
+import { getDispatch, isGoReply, queueDispatch } from '@/lib/agent-dispatch';
 
 export async function POST(request: Request) {
   try {
@@ -105,6 +106,26 @@ export async function POST(request: Request) {
     // an adaptive instant ack. Dormant until the choreographer cron is cut over (no
     // active tasks exist before then). Falls through to list handling if unrelated.
     const activeTask = await getActiveTask(user.id);
+
+    // Agent dispatch: a GO reply to a pending agent offer queues the job — fully
+    // deterministic, no model call between his GO and the queue.
+    if (activeTask && isGoReply(body) && getDispatch(activeTask)?.status === 'offered') {
+      const queued = await queueDispatch(activeTask);
+      if (queued) {
+        const ack = `🤖 On it — "${activeTask.task_label}" is queued. The agent picks it up within ~30 min and I'll text you the PR.`;
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'outbound', message_text: ack, goal_context: null });
+        await sendSMS(user.phone_number, ack);
+        return new NextResponse('<Response></Response>', {
+          headers: { 'Content-Type': 'text/xml' },
+        });
+      }
+    }
+
     if (activeTask) {
       const { data: recent } = await supabase
         .from('sms_conversations')
