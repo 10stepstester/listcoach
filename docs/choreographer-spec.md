@@ -1,7 +1,61 @@
 # Attention Choreographer — Spec & Build Plan
 
-_Status: design agreed 2026-06-05. This is the source of truth; supersedes the original
-"capacity-matched nudge" Cowork prompt where they conflict._
+_Status: design agreed 2026-06-05; **built and live as of 2026-06-07**. This is the source
+of truth; supersedes the original "capacity-matched nudge" Cowork prompt where they conflict._
+
+## As-built status (live as of 2026-06-07)
+
+The build shipped and went live — the 10-min cron-job.org job now points at
+`/api/cron/choreographer`. Phases 1–5 **and GO-LIVE are complete.**
+
+**Live (the actual system):**
+- `choreographer.ts` + `/api/cron/choreographer` — the single live brain; one Sonnet call
+  per 10-min tick (prime / go / check / silent).
+- Calendar: scope upgraded to `calendar.readonly` (+ `gmail.readonly` bundled);
+  `getCalendarMoment` / `classifyWindow` read real events.
+- fasciachart reactivation: service-token auth → `GET /api/reactivation/top` + `log-contact`
+  (real patient names/phones, e.g. "Text Janet Gose").
+- `nudge_state` in-flight task memory (prime→go→check lifecycle). Big tasks are nudged in
+  baby steps under the umbrella label; each beat stamps its micro-step on the row
+  (`entity.current_step`) so replies are judged against the step, not the project
+  (2026-06-10).
+- Reply reactivity: `handleNudgeReply` + the webhook branch. Meanings: done (whole label) /
+  step_done (one micro-step — task stays active) / deferred / declined / unrelated.
+  Reactivation labels are atomic, so step_done normalizes to done there (keeps the
+  fasciachart log-contact loop-close).
+- Scribe durable memory (`scribe.ts`, 2026-06-10): fast path extracts facts from each
+  inbound reply into the `facts` plan doc; nightly Vercel cron (`scribe-compact`, 3 AM UTC)
+  compacts it. Inbound-only sourcing — bot texts are never a fact source.
+- Clinic-turnover guard (2026-06-10): between back-to-back patients only a quick
+  reactivation text is allowed — dev/ops nudges are hard-stopped in code.
+- **Editable playbooks:** `plan_docs` table + `plan-store.ts` + the Settings editor +
+  `/api/plan`. Editing a playbook in Settings changes nudges with **no deploy** — the
+  `plan.ts` constants are only the fallback when a key hasn't been edited.
+
+**Superseded / vestigial (still in the repo, NOT driving nudges):**
+- `check-goals` route — the old brain, now fully orphaned: the ghost Vercel cron at
+  12:00 UTC was removed from `vercel.json` on 2026-06-10. The route is dead code; nothing
+  calls it.
+- `morning-advisory` (6 AM) — still runs and writes `daily_advisory`, which nothing reads
+  now. Wasted Sonnet call; otherwise harmless.
+- `generate-plan.ts` + `plan_queue` / `day_type` writes — dormant, not wired to any cron. Inert.
+- `clinic_days` / `clinic_start` / `clinic_end` columns — wrong (Ladd works Fridays) and
+  unread; the live calendar is the source of truth for "am I in clinic."
+- Capacity columns on `subtasks` (`est_minutes`, `lane`, `priority`, `is_emergency`) — inert.
+  Kept because additive/harmless.
+
+**Known open issues:**
+- **Focus bar not honored.** `users.focus` (the bar under the tabs) is read only by the dead
+  `check-goals` / `claude.ts` path — `choreographer.ts` never reads it. Typing a focus does
+  nothing to live nudges. Fix: feed `user.focus` into the choreographer prompt as a
+  top-priority override.
+- ~~**Metered Stripe → resolved by v5 (2026-06-07).**~~ DONE: playbook v5 (flat ~$89/mo +
+  tiers, organic + beta conversion, workshop Oct 17) is live in Settings and synced to the
+  `plan.ts` fallback with `PLAN_START = 2026-06-13` (commits f3c1e74, 5c96989).
+- ~~**DEV/OPS lane gap (new with v5).**~~ DONE 2026-06-07 (commit 5e6920e): lanes are now
+  `reactivation`/`ops`/`dev` (legacy `practice` normalized to `ops` on read), CORE_SYSTEM
+  ranks across all three per v5 §0, and the playbook is a first-class candidate source.
+- Escalation-tone ("25 ignored / Answer NOW") — left as-is intentionally (Ladd wants it).
 
 ## What it is (one paragraph)
 
@@ -60,9 +114,10 @@ boundaries, real gaps, and distinguish odd blocks (a 210-min event titled ".") f
   Don't trust a static clinic-days field; the live calendar is the source of truth for
   "am I in clinic." Plan to drop/ignore `clinic_days` in favor of reading events.
 
-### Heartbeat — keep the 10-minute cron (most failsafe)
-The existing `/api/cron/check-goals` 10-min external cron stays. We do **not** go to a
-1–2 min cron or self-scheduling. Rationale: 30/60-min sessions on clean boundaries make
+### Heartbeat — the 10-minute cron (most failsafe)
+The 10-min external cron-job.org job is the heartbeat. **As built, it now points at
+`/api/cron/choreographer`** (cut over from the retired `/api/cron/check-goals`). We do
+**not** go to a 1–2 min cron or self-scheduling. Rationale: 30/60-min sessions on clean boundaries make
 consecutive 10-min ticks fall naturally into prime → go → check; ±5 min is fine for
 shepherding; and because **every tick re-reads reality from scratch, it self-heals** — a
 missed beat is recovered on the next tick. A precise self-scheduled system is more fragile.
@@ -189,12 +244,14 @@ patient data.
    until cutover). Dry-run verified live. Playbooks prompt-cached.
 5. ✅ **Reactivity** — `handleNudgeReply` + webhook branch (dormant until cutover).
 
-### ⬜ GO-LIVE (cutover) — deliberate, sends real SMS
-- Add `FASCIACHART_API_URL` + `LISTCOACH_SERVICE_TOKEN` to **listcoach Vercel** env.
-- Deploy listcoach (webhook reactivity + choreographer endpoint go live but stay dormant).
-- One live end-to-end test (trigger a real nudge to Ladd's phone).
-- Switch the cron-job.org 10-min job from `/api/cron/check-goals` → `/api/cron/choreographer`.
-- Then tune text length, escalation cadence, etc. from real texts.
+### ✅ GO-LIVE (cutover) — done 2026-06-07, sending real SMS
+- ✅ `FASCIACHART_API_URL` + `LISTCOACH_SERVICE_TOKEN` in listcoach Vercel env.
+- ✅ Deployed (webhook reactivity + choreographer endpoint live).
+- ✅ Live end-to-end test fired a real nudge.
+- ✅ cron-job.org 10-min job switched `/api/cron/check-goals` → `/api/cron/choreographer`.
+- ◐ Tuning from real texts is ongoing (tone is intentionally aggressive per Ladd).
+- ⬜ **Decommission debt (deferred):** retire the leftover Vercel noon `check-goals` cron,
+  the 6 AM `morning-advisory`, and the dormant `generate-plan` path. See As-built status.
 
 ### ⬜ Later
 6. **Gmail interrupts** — scope already granted; scheduling-voicemail preempts a beat.
@@ -203,4 +260,5 @@ patient data.
 ## Open questions / parked
 - Exact storage shape for in-flight state (row vs columns) — decide at Phase 3.
 - How aggressively GO/CHECK should re-offer after Ladd ignores a beat (decay rule).
-- Whether the morning advisory still sends a separate strategic SMS or folds into the brain.
+- ~~Whether the morning advisory still sends a separate strategic SMS or folds into the brain.~~
+  RESOLVED: the brain ignores `morning-advisory` output; it's now dead weight, slated for decommission.
