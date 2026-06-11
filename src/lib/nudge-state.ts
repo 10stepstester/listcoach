@@ -78,9 +78,12 @@ export async function startTask(
 }
 
 // Record that a beat (text) was just sent: bump beats_sent, stamp last_beat_at,
-// optionally advance the stage. (Single 10-min cron per user → no real race on the
-// read-then-write increment.)
-export async function recordBeat(id: string, opts: { stage?: BeatStage } = {}): Promise<void> {
+// optionally advance the stage and/or replace entity (e.g. the current micro-step).
+// (Single 10-min cron per user → no real race on the read-then-write increment.)
+export async function recordBeat(
+  id: string,
+  opts: { stage?: BeatStage; entity?: Record<string, unknown> | null } = {}
+): Promise<void> {
   const { data } = await supabase.from('nudge_state').select('beats_sent').eq('id', id).single();
   const nowIso = new Date().toISOString();
   const patch: Record<string, unknown> = {
@@ -89,6 +92,7 @@ export async function recordBeat(id: string, opts: { stage?: BeatStage } = {}): 
     updated_at: nowIso,
   };
   if (opts.stage) patch.beat_stage = opts.stage;
+  if (opts.entity !== undefined) patch.entity = opts.entity;
   const { error } = await supabase.from('nudge_state').update(patch).eq('id', id);
   if (error) console.error('[nudge-state] recordBeat error:', error);
 }

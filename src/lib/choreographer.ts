@@ -22,6 +22,7 @@ import {
   getActiveTask,
   startTask,
   recordBeat,
+  updateTask,
   closeTask,
   type NudgeTask,
   type TaskLane,
@@ -197,6 +198,7 @@ The KNOWN FACTS block is permanent memory built from Ladd's own replies. Trust i
 BABY STEPS — the most important rule for big tasks:
 Never nudge the whole task. The text is the single smallest first PHYSICAL action that starts it — the 2-minute on-ramp (open the file, run one search, list what needs changing, write one line). Momentum comes from STARTING; the NEXT beat gives the next micro-step. Keep "task_label" as the larger task so it's tracked across beats, but make "text" just the next tiny step.
 Example: task_label "Rebrand to chatwithmybody" → text "Search the repo for chatwithmydna — just count the files." Next beat → "Got the count? Rename the homepage title first."
+The TASK IN FLIGHT block shows the current micro-step and the last one he completed — hand the NEXT step forward from there; never re-nudge a step he already confirmed.
 This applies to CHECK beats too: if he's stuck or silent, do NOT just demand a status ("what's blocking you?"). Re-offer an EVEN SMALLER step to break the logjam ("Still on the rebrand? Just run: grep chatwithmydna. 30 sec."). Be persistent (squeaky wheel) but ALWAYS hand him a tiny doable thing, never just an interrogation.
 
 THREE LANES — rank ACROSS all three; the best task wins, whatever the lane:
@@ -218,7 +220,7 @@ SELECTING THE TASK — use the DEV PLAYBOOK's own decision procedure (its §0):
 
 CANDIDATE POOL (important): nudge from BOTH the OPEN TO-DOS list AND the current phase's task stacks in the DEV PLAYBOOK. If the highest-priority phase task is NOT in the to-do list (e.g. "convert beta cohort"), nudge it ANYWAY as a concrete first action ("Email Jerry re: the founding rate"). The playbook is a first-class task source, not just reference.
 
-CONVERSATION: read recent replies. "call first" / "with a patient" → acknowledge and reshape, don't blindly repeat. If he said it's done, set task_done.
+CONVERSATION: read recent replies. "call first" / "with a patient" → acknowledge and reshape, don't blindly repeat. task_done means the WHOLE task_label is finished — a "yes" to one micro-step is progress, NOT task_done; keep continue_task true and hand the next step. Only set task_done when his words clearly cover the full label (or the label is itself one atomic action he confirmed).
 
 JUNK: if the only candidates are vague fragments ("Mirror", "Test", "Untitled"), skip — a smart picker ignores junk instead of surfacing it.
 
@@ -337,7 +339,9 @@ ${win.line}
 # TASK IN FLIGHT
 ${
   active
-    ? `label: "${active.task_label}" | lane: ${active.lane} | stage: ${active.beat_stage} | beats_sent: ${active.beats_sent} | last_beat_at: ${active.last_beat_at ?? 'never'}`
+    ? `label: "${active.task_label}" | lane: ${active.lane} | stage: ${active.beat_stage} | beats_sent: ${active.beats_sent} | last_beat_at: ${active.last_beat_at ?? 'never'}
+current micro-step: ${typeof active.entity?.current_step === 'string' ? `"${active.entity.current_step}"` : '(none recorded)'}
+last completed micro-step: ${typeof active.entity?.last_completed_step === 'string' ? `"${active.entity.last_completed_step}"` : '(none)'}`
     : '(none — pick a fresh one if a beat fits)'
 }
 
@@ -429,15 +433,25 @@ Decide the one beat (or skip). Output the JSON now.`;
     await closeTask(active.id, 'done');
   }
   if (active && decision.continue_task && !decision.task_done) {
-    await recordBeat(active.id, { stage });
+    // The text just sent IS the current micro-step — keep it on the row so the
+    // reply interpreter judges "done" against the step, not the umbrella label.
+    await recordBeat(active.id, {
+      stage,
+      entity: { ...(active.entity ?? {}), current_step: decision.text },
+    });
   } else if (!decision.task_done) {
     // Attach the patient identity to reactivation tasks so a "done" reply can log
     // the contact back to fasciachart and stop the patient resurfacing.
     const entity =
       lane === 'reactivation' && reactivation
         ? { patient_id: reactivation.id, name: reactivation.name, phone: reactivation.phone }
-        : null;
-    await startTask(userId, { lane: lane ?? null, task_label: label, entity, beat_stage: stage });
+        : {};
+    await startTask(userId, {
+      lane: lane ?? null,
+      task_label: label,
+      entity: { ...entity, current_step: decision.text },
+      beat_stage: stage,
+    });
   }
 
   return result;
@@ -450,21 +464,27 @@ Decide the one beat (or skip). Output the JSON now.`;
 // =============================================================================
 const REPLY_SYSTEM = `You interpret Ladd's SMS reply to a nudge about the task in flight, and write a SHORT acknowledgment that keeps momentum. You're a real-person accountability texter, not an app.
 
+Big tasks are nudged in BABY STEPS: the task label is the umbrella project ("Rebrand X → Y"), but each nudge is one tiny micro-step (the CURRENT STEP in the input). An affirmative reply almost always means the STEP, not the project.
+
 Classify what his reply means about the in-flight task:
-- done: he did it / completed it.
+- done: the WHOLE task (the label) is finished. Only when his words clearly cover the full label ("rebrand's done", "shipped it", "all renamed and deployed"). EXCEPTION: if the label is itself one atomic action ("Text Janet Gose", "Email Jerry"), an affirmative IS done.
+- step_done: he did the CURRENT STEP, or his reply makes it moot ("Yes I already own that domain" when the step was buying the domain). The project continues — the next nudge gives the next step.
 - deferred: he'll do it but is doing something else first ("call first", "in a sec").
 - declined: he can't / won't right now ("with a patient", "no", "later").
 - unrelated: the reply isn't about this task at all.
 
+When in doubt between done and step_done on a project-sized label, pick step_done — wrongly closing a live project is far worse than one extra check-in.
+
 Write a short ack:
 - done: celebrate in ~3 words AND, if a next item is given, hand it to him ("Nice — next is George Ruiz.").
+- step_done: tiny celebrate, momentum forward ("Good — next step coming."). NEVER imply the whole task is finished.
 - deferred: acknowledge the detour and re-point ("Cool — then text Janet.").
 - declined: brief, no guilt ("All good. Later.").
 - unrelated: leave ack empty.
 
 Rules: VERY short. No preamble. Real names. Don't parrot his words.
 
-Output strict JSON: { "meaning": "done"|"deferred"|"declined"|"unrelated", "ack": "<short text or empty>" }`;
+Output strict JSON: { "meaning": "done"|"step_done"|"deferred"|"declined"|"unrelated", "ack": "<short text or empty>" }`;
 
 export async function handleNudgeReply(
   userId: string,
@@ -474,6 +494,8 @@ export async function handleNudgeReply(
 ): Promise<string | null> {
   const currentPid =
     active.entity && active.entity.patient_id != null ? Number(active.entity.patient_id) : null;
+  const currentStep =
+    typeof active.entity?.current_step === 'string' ? active.entity.current_step : null;
 
   // For reactivation, fetch the next candidate so the ack can name it on "done".
   let nextCandidate: ReactivationCandidate | null = null;
@@ -493,6 +515,9 @@ export async function handleNudgeReply(
           role: 'user',
           content: `# TASK IN FLIGHT
 "${active.task_label}" (lane: ${active.lane}, stage: ${active.beat_stage})
+
+# CURRENT STEP (the micro-step he was last nudged — judge "done" against THIS)
+${currentStep ? `"${currentStep}"` : '(none recorded — judge against the label)'}
 
 # RECENT TEXTS
 ${convo || '(none)'}
@@ -518,6 +543,12 @@ Output the JSON.`,
 
   if (parsed.meaning === 'unrelated') return null; // let the list handler take it
 
+  // Reactivation labels are atomic ("Text Janet Gose") — a completed step IS the
+  // task. Normalize so the fasciachart loop-close below always fires for them.
+  if (parsed.meaning === 'step_done' && active.lane === 'reactivation') {
+    parsed.meaning = 'done';
+  }
+
   if (parsed.meaning === 'done') {
     if (active.lane === 'reactivation' && currentPid != null) {
       await logReactivationContact(currentPid, 'sent');
@@ -532,6 +563,17 @@ Output the JSON.`,
         beat_stage: 'assigned',
       });
     }
+  } else if (parsed.meaning === 'step_done') {
+    // A micro-step landed but the umbrella task lives on: archive the step as
+    // completed and clear current_step so the next tick hands the NEXT step
+    // (and a stray second reply isn't judged against a step he already did).
+    await updateTask(active.id, {
+      entity: {
+        ...(active.entity ?? {}),
+        last_completed_step: currentStep ?? incoming,
+        current_step: null,
+      },
+    });
   } else if (parsed.meaning === 'declined') {
     await closeTask(active.id, 'dropped');
   }
