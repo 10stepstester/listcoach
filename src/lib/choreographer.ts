@@ -199,7 +199,8 @@ The KNOWN FACTS block is permanent memory built from Ladd's own replies. Trust i
 
 AGENT DISPATCH — dev software tasks go to the cloud agent, not to Ladd's thumbs:
 You have a cloud coding agent that can do repo work itself (branch + PR for Ladd's review). NEVER walk Ladd through code edits over SMS — no "open the file", "run grep", "paste the output" texts. That failed badly. For a dev-lane task that is concrete software work (renames, code changes, config, a page, a route):
-- The text OFFERS the agent and gives a PLAIN-ENGLISH heads-up so his GO is informed. Three parts, everyday words a non-programmer instantly gets: (1) WHAT will happen (the outcome, never the method), (2) one short "Why / Risk:" line — why this task matters now and what could go wrong, honestly ("Risk: low — it's renaming; nothing changes for users until you OK it" / "Risk: this touches billing, I'll stop and ask if anything's unclear"), (3) GO. BANNED in the text: repo, branch, PR, commit, merge, search/replace, grep, refactor, config, deploy. Example: "Open window. I can do the rebrand: every place the app still says chatwithmydna becomes chatwithmybody. Why: the new name is blocking outreach. Risk: low — renaming only, and you OK it before it goes live. GO?"
+- The text OFFERS the agent and gives a PLAIN-ENGLISH heads-up so his GO is informed. Three parts, everyday words a non-programmer instantly gets: (1) WHAT will happen (the outcome, never the method), (2) one short "Why / Risk:" line — why this task matters now and what could go wrong, honestly ("Risk: low — it's renaming; nothing changes for users until you OK it" / "Risk: this touches billing, I'll stop and ask if anything's unclear"), (3) GO. NEVER narrate the window or time of day ("Evening open", "Long block") — go straight to the offer. BANNED in the text: repo, branch, PR, commit, search/replace, grep, refactor, config, deploy. ("MERGE" is allowed only as the reply keyword.) Example: "I can do the rebrand: every place the app still says chatwithmydna becomes chatwithmybody. Why: the new name is blocking outreach. Risk: low — renaming only, and you OK it before it goes live. GO?"
+- After the agent finishes, the work parks as "awaiting merge" — he makes it live by replying MERGE. The review already happened (the executor checks its own work + runs the app's tests before reporting).
 - Include "agent_brief" in the JSON: a self-contained spec for the agent — what to change, definition of done, what NOT to touch. The agent has the repo and its CLAUDE.md; the brief is the task spec, not repo orientation. The brief can be technical; the TEXT must not be.
 - TASK IN FLIGHT shows the dispatch state. offered → a check beat may re-offer briefly ("Rebrand offer still open — GO when ready."), still with agent_brief. queued/running → the agent is on it: do NOT nudge that task; pick a different lane or skip.
 - Dev work that genuinely needs Ladd's hands (a registrar/DNS dashboard, buying something, an account approval, a judgment decision) is NOT dispatchable — nudge it as a normal tiny action, no agent_brief.
@@ -253,15 +254,16 @@ interface ModelDecision {
 // dev jargon (it imitates earlier texts in the convo), so this is code-enforced: if
 // an offer trips the jargon check, one small rewrite call converts it to plain
 // English. Falls back to the original text — jargon beats silence.
+// "merge" is deliberately absent — "reply MERGE" is the approval keyword.
 const OFFER_JARGON_RE =
-  /\b(repos?|branch(es)?|PRs?|pull request|commits?|merge[ds]?|grep|refactor\w*|configs?|deploy\w*|search\/replace)\b/i;
+  /\b(repos?|branch(es)?|PRs?|pull request|commits?|grep|refactor\w*|configs?|deploy\w*|search\/replace)\b/i;
 
 async function plainEnglishOffer(text: string): Promise<string> {
   try {
     const resp = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 150,
-      system: `Rewrite this SMS for a smart non-programmer. It offers to do software work for him: keep it very short, keep "GO" as the call-to-action, describe the OUTCOME in everyday words, keep (or add) one short "Why / Risk:" line so his GO is informed, and reassure that nothing changes for users until he approves. BANNED words: repo, branch, PR, pull request, commit, merge, grep, refactor, config, deploy, search/replace, codebase. Output ONLY the rewritten SMS.`,
+      system: `Rewrite this SMS for a smart non-programmer. It offers to do software work for him: keep it very short, keep "GO" (or "MERGE") as the call-to-action, describe the OUTCOME in everyday words, keep (or add) one short "Why / Risk:" line so his GO is informed, and reassure that nothing changes for users until he approves. Never narrate the time of day or window ("Evening open"). BANNED words: repo, branch, PR, pull request, commit, grep, refactor, config, deploy, search/replace, codebase. Output ONLY the rewritten SMS.`,
       messages: [{ role: 'user', content: text }],
     });
     const tb = resp.content.find((b) => b.type === 'text');
@@ -382,6 +384,8 @@ agent dispatch: ${(() => {
         if (d.status === 'offered') return 'OFFERED — awaiting his GO; a brief re-offer is ok';
         if (d.status === 'queued' || d.status === 'running')
           return `${d.status.toUpperCase()} — the agent is on it; do NOT nudge this task, pick another lane or skip`;
+        if (d.status === 'awaiting_merge')
+          return `AWAITING MERGE — work is done & checked (${d.summary ?? ''}); a short reminder is fine: one line + "reply MERGE to make it live". Do NOT re-explain the task.`;
         return `${d.status} — ${d.summary ?? ''}`;
       })()}`
     : '(none — pick a fresh one if a beat fits)'

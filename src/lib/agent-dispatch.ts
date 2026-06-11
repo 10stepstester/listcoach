@@ -18,7 +18,14 @@ import { appendFacts } from '@/lib/plan-store';
 export const AGENT_REPO = 'https://github.com/10stepstester/nativehelix';
 export const AGENT_REPO_DEFAULT_BRANCH = 'master';
 
-export type DispatchStatus = 'offered' | 'queued' | 'running' | 'done' | 'failed' | 'blocked';
+export type DispatchStatus =
+  | 'offered'
+  | 'queued'
+  | 'running'
+  | 'awaiting_merge'
+  | 'merged'
+  | 'failed'
+  | 'blocked';
 
 export interface DispatchInfo {
   status: DispatchStatus;
@@ -28,8 +35,13 @@ export interface DispatchInfo {
   queued_at?: string;
   started_at?: string;
   finished_at?: string;
+  merged_at?: string;
   summary?: string;
+  upside?: string;
+  risk?: string;
+  verdict?: string;
   pr_url?: string;
+  pr_number?: number;
 }
 
 export function getDispatch(task: NudgeTask | null): DispatchInfo | null {
@@ -42,6 +54,12 @@ export function getDispatch(task: NudgeTask | null): DispatchInfo | null {
 const GO_RE = /^\s*(go|go ahead|do it|run it|send it|yes,? go|agent,? go|you do it|🤖)\s*[.!]*\s*$/i;
 export function isGoReply(body: string): boolean {
   return GO_RE.test(body);
+}
+
+// Deterministic MERGE detection — his one-word "make it live".
+const MERGE_RE = /^\s*(merge|ship( it)?|approve[d]?|make it live|✅)\s*[.!]*\s*$/i;
+export function isMergeReply(body: string): boolean {
+  return MERGE_RE.test(body);
 }
 
 export async function queueDispatch(task: NudgeTask): Promise<DispatchInfo | null> {
@@ -101,12 +119,18 @@ export async function claimQueuedJobs(): Promise<AgentJob[]> {
 export interface CompletionReport {
   status: 'done' | 'failed' | 'blocked';
   summary: string;
+  upside?: string;
+  risk?: string;
+  verdict?: string;
   prUrl?: string;
+  prNumber?: number;
 }
 
-// Record the executor's report: update dispatch state, close the task on done
-// (leave it active on failed/blocked so the loop can follow up), write durable
-// memory, and return the SMS to send Ladd.
+// Record the executor's report. "done" means built AND checked (the executor runs
+// a review pass + the repo's build before reporting) — the task parks as
+// awaiting_merge and Ladd gets one plain-words text: what changed, upside, risk,
+// reply MERGE. Nothing is texted with a bare PR link; the link lives on the task
+// for the merge call (and for anyone who wants to look).
 export async function completeDispatch(
   taskId: string,
   report: CompletionReport
@@ -123,14 +147,19 @@ export async function completeDispatch(
   const task = row as NudgeTask;
   const d = getDispatch(task);
 
+  const status: DispatchStatus = report.status === 'done' ? 'awaiting_merge' : report.status;
   await updateTask(taskId, {
     entity: {
       ...(task.entity ?? {}),
       dispatch: {
         ...(d ?? { brief: '', repo: AGENT_REPO }),
-        status: report.status,
+        status,
         summary: report.summary,
+        upside: report.upside,
+        risk: report.risk,
+        verdict: report.verdict,
         pr_url: report.prUrl,
+        pr_number: report.prNumber,
         finished_at: new Date().toISOString(),
       },
     },
@@ -138,16 +167,75 @@ export async function completeDispatch(
 
   let sms: string;
   if (report.status === 'done') {
-    await closeTask(taskId, 'done');
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
-    await appendFacts([
-      `${today}: Agent completed "${task.task_label}" — ${report.summary}${report.prUrl ? ` (${report.prUrl})` : ''}. Awaiting Ladd's review/merge.`,
-    ]);
-    sms = `🤖 Done: ${task.task_label}. ${report.summary}${report.prUrl ? `\nSee the changes (nothing is live until approved): ${report.prUrl}` : ''}`;
+    sms =
+      `🤖 ${task.task_label} — done & checked. ${report.summary}` +
+      (report.upside ? `\nUpside: ${report.upside}` : '') +
+      (report.risk ? `\nRisk: ${report.risk}` : '') +
+      `\nReply MERGE to make it live.`;
   } else if (report.status === 'blocked') {
     sms = `🤖 Need input on "${task.task_label}": ${report.summary}`;
   } else {
     sms = `🤖 Couldn't finish "${task.task_label}": ${report.summary}`;
   }
   return { userId: task.user_id, sms };
+}
+
+// Ladd replied MERGE: squash-merge the agent's PR via the GitHub API, close the
+// task, and record the real-world change in durable memory. Returns the SMS to
+// send (success or a plain failure with the reason).
+export async function mergeDispatch(task: NudgeTask): Promise<{ sms: string; merged: boolean }> {
+  const d = getDispatch(task);
+  if (!d || d.status !== 'awaiting_merge') {
+    return { sms: '', merged: false };
+  }
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) {
+    return { sms: `Can't merge from here yet — GITHUB_TOKEN isn't configured.`, merged: false };
+  }
+
+  const repoMatch = (d.repo || '').match(/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?$/);
+  const prNumber = d.pr_number ?? Number((d.pr_url || '').match(/\/pull\/(\d+)/)?.[1]);
+  if (!repoMatch || !prNumber) {
+    return {
+      sms: `🤖 Can't merge "${task.task_label}" — no PR recorded on the job. I'll flag it.`,
+      merged: false,
+    };
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${repoMatch[1]}/${repoMatch[2]}/pulls/${prNumber}/merge`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ merge_method: 'squash' }),
+      }
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.merged) {
+      const msg = body.message || `HTTP ${res.status}`;
+      console.error('[agent-dispatch] merge failed:', msg);
+      return { sms: `🤖 Merge didn't go through for "${task.task_label}": ${msg}`, merged: false };
+    }
+  } catch (err) {
+    console.error('[agent-dispatch] merge error:', err);
+    return { sms: `🤖 Merge hit an error for "${task.task_label}" — I'll retry next time you reply MERGE.`, merged: false };
+  }
+
+  await updateTask(task.id, {
+    entity: {
+      ...(task.entity ?? {}),
+      dispatch: { ...d, status: 'merged', merged_at: new Date().toISOString() },
+    },
+  });
+  await closeTask(task.id, 'done');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
+  await appendFacts([
+    `${today}: "${task.task_label}" is DONE and merged (agent built it, Ladd approved): ${d.summary ?? ''} Never nudge this again.`,
+  ]);
+  return { sms: `✅ Merged — "${task.task_label}" will be live in a few minutes.`, merged: true };
 }

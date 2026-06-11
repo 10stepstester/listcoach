@@ -6,7 +6,7 @@ import { sendSMS } from '@/lib/twilio';
 import { getActiveTask } from '@/lib/nudge-state';
 import { handleNudgeReply } from '@/lib/choreographer';
 import { scribeReply } from '@/lib/scribe';
-import { getDispatch, isGoReply, queueDispatch } from '@/lib/agent-dispatch';
+import { getDispatch, isGoReply, isMergeReply, queueDispatch, mergeDispatch } from '@/lib/agent-dispatch';
 
 export async function POST(request: Request) {
   try {
@@ -106,6 +106,24 @@ export async function POST(request: Request) {
     // an adaptive instant ack. Dormant until the choreographer cron is cut over (no
     // active tasks exist before then). Falls through to list handling if unrelated.
     const activeTask = await getActiveTask(user.id);
+
+    // Agent dispatch: MERGE on reviewed work makes it live — deterministic, no
+    // model call between his word and the action.
+    if (activeTask && isMergeReply(body) && getDispatch(activeTask)?.status === 'awaiting_merge') {
+      const { sms } = await mergeDispatch(activeTask);
+      if (sms) {
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'outbound', message_text: sms, goal_context: null });
+        await sendSMS(user.phone_number, sms);
+        return new NextResponse('<Response></Response>', {
+          headers: { 'Content-Type': 'text/xml' },
+        });
+      }
+    }
 
     // Agent dispatch: a GO reply to a pending agent offer queues the job — fully
     // deterministic, no model call between his GO and the queue.

@@ -15,7 +15,16 @@ export async function POST(request: Request) {
     }
   }
 
-  let body: { taskId?: string; status?: string; summary?: string; prUrl?: string };
+  let body: {
+    taskId?: string;
+    status?: string;
+    summary?: string;
+    upside?: string;
+    risk?: string;
+    verdict?: string;
+    prUrl?: string;
+    prNumber?: number;
+  };
   try {
     body = await request.json();
   } catch {
@@ -33,7 +42,11 @@ export async function POST(request: Request) {
   const result = await completeDispatch(body.taskId, {
     status,
     summary: body.summary,
+    upside: body.upside,
+    risk: body.risk,
+    verdict: body.verdict,
     prUrl: body.prUrl,
+    prNumber: body.prNumber,
   });
   if (!result) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 });
