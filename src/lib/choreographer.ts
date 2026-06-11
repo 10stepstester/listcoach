@@ -199,8 +199,8 @@ The KNOWN FACTS block is permanent memory built from Ladd's own replies. Trust i
 
 AGENT DISPATCH — dev software tasks go to the cloud agent, not to Ladd's thumbs:
 You have a cloud coding agent that can do repo work itself (branch + PR for Ladd's review). NEVER walk Ladd through code edits over SMS — no "open the file", "run grep", "paste the output" texts. That failed badly. For a dev-lane task that is concrete software work (renames, code changes, config, a page, a route):
-- The text OFFERS the agent, very short: name the task + reply GO. ("2-hr window. I can do the rebrand myself — PR for your review. GO?")
-- Include "agent_brief" in the JSON: a self-contained spec for the agent — what to change, definition of done, what NOT to touch. The agent has the repo and its CLAUDE.md; the brief is the task spec, not repo orientation.
+- The text OFFERS the agent and gives a PLAIN-ENGLISH heads-up of what will actually happen — one sentence a non-programmer instantly gets. Describe the OUTCOME in everyday words, never the method. BANNED in the text: repo, branch, PR, commit, merge, search/replace, grep, refactor, config, deploy. Say "the app", "every place that still says X", "you check it before anything goes live". ("Open window. I can do the rebrand: every place the app still says chatwithmydna becomes chatwithmybody. Nothing changes for users until you OK it. GO?")
+- Include "agent_brief" in the JSON: a self-contained spec for the agent — what to change, definition of done, what NOT to touch. The agent has the repo and its CLAUDE.md; the brief is the task spec, not repo orientation. The brief can be technical; the TEXT must not be.
 - TASK IN FLIGHT shows the dispatch state. offered → a check beat may re-offer briefly ("Rebrand offer still open — GO when ready."), still with agent_brief. queued/running → the agent is on it: do NOT nudge that task; pick a different lane or skip.
 - Dev work that genuinely needs Ladd's hands (a registrar/DNS dashboard, buying something, an account approval, a judgment decision) is NOT dispatchable — nudge it as a normal tiny action, no agent_brief.
 
@@ -246,6 +246,31 @@ interface ModelDecision {
   task_label?: string;
   text?: string;
   agent_brief?: string;
+}
+
+// Agent offers must be understandable by a non-programmer — Ladd is approving work,
+// so he has to know what'll happen in his own words. The brain keeps slipping into
+// dev jargon (it imitates earlier texts in the convo), so this is code-enforced: if
+// an offer trips the jargon check, one small rewrite call converts it to plain
+// English. Falls back to the original text — jargon beats silence.
+const OFFER_JARGON_RE =
+  /\b(repos?|branch(es)?|PRs?|pull request|commits?|merge[ds]?|grep|refactor\w*|configs?|deploy\w*|search\/replace)\b/i;
+
+async function plainEnglishOffer(text: string): Promise<string> {
+  try {
+    const resp = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 150,
+      system: `Rewrite this SMS for a smart non-programmer. It offers to do software work for him: keep it very short, keep "GO" as the call-to-action, describe the OUTCOME in everyday words, and reassure that nothing changes for users until he approves. BANNED words: repo, branch, PR, pull request, commit, merge, grep, refactor, config, deploy, search/replace, codebase. Output ONLY the rewritten SMS.`,
+      messages: [{ role: 'user', content: text }],
+    });
+    const tb = resp.content.find((b) => b.type === 'text');
+    const out = tb && 'text' in tb ? tb.text.trim() : '';
+    return out && !OFFER_JARGON_RE.test(out) ? out : text;
+  } catch (err) {
+    console.error('[choreographer] plainEnglishOffer failed:', err);
+    return text;
+  }
 }
 
 export async function runChoreographer(
@@ -404,6 +429,10 @@ Decide the one beat (or skip). Output the JSON now.`;
 
   if (decision.action !== 'send' || !decision.text) {
     return { action: 'skip', reason: decision.reason || 'model chose silence', situation, dryRun };
+  }
+
+  if (decision.agent_brief && decision.lane === 'dev' && OFFER_JARGON_RE.test(decision.text)) {
+    decision.text = await plainEnglishOffer(decision.text);
   }
 
   const beat = decision.beat || 'go';
