@@ -35,9 +35,9 @@ export async function POST(request: Request) {
   }
 
   const status = body.status as CompletionReport['status'];
-  if (!body.taskId || !body.summary || !['done', 'failed', 'blocked'].includes(status)) {
+  if (!body.taskId || !body.summary || !['done', 'already_done', 'failed', 'blocked'].includes(status)) {
     return NextResponse.json(
-      { error: 'Required: taskId, summary, status (done|failed|blocked)' },
+      { error: 'Required: taskId, summary, status (done|already_done|failed|blocked)' },
       { status: 400 }
     );
   }

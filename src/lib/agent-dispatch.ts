@@ -117,7 +117,7 @@ export async function claimQueuedJobs(): Promise<AgentJob[]> {
 }
 
 export interface CompletionReport {
-  status: 'done' | 'failed' | 'blocked';
+  status: 'done' | 'already_done' | 'failed' | 'blocked';
   summary: string;
   upside?: string;
   risk?: string;
@@ -147,7 +147,15 @@ export async function completeDispatch(
   const task = row as NudgeTask;
   const d = getDispatch(task);
 
-  const status: DispatchStatus = report.status === 'done' ? 'awaiting_merge' : report.status;
+  // already_done: the assess-first pass found the work was already in place (often
+  // Ladd did it himself) — nothing to merge. Terminal: close the task and record it
+  // so it's never offered again.
+  const status: DispatchStatus =
+    report.status === 'done'
+      ? 'awaiting_merge'
+      : report.status === 'already_done'
+        ? 'merged'
+        : report.status;
   await updateTask(taskId, {
     entity: {
       ...(task.entity ?? {}),
@@ -165,6 +173,7 @@ export async function completeDispatch(
     },
   });
 
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date());
   let sms: string;
   if (report.status === 'done') {
     sms =
@@ -172,6 +181,12 @@ export async function completeDispatch(
       (report.upside ? `\nUpside: ${report.upside}` : '') +
       (report.risk ? `\nRisk: ${report.risk}` : '') +
       `\nReply MERGE to make it live.`;
+  } else if (report.status === 'already_done') {
+    await closeTask(taskId, 'done');
+    await appendFacts([
+      `${today}: "${task.task_label}" was already done (the agent checked before starting) — ${report.summary} Never offer or nudge it again.`,
+    ]);
+    sms = `🤖 Checked first — "${task.task_label}" is already done. ${report.summary} Nothing to change.`;
   } else if (report.status === 'blocked') {
     sms = `🤖 Need input on "${task.task_label}": ${report.summary}`;
   } else {
