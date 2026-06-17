@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { runChoreographer } from '@/lib/choreographer';
 
+// PAUSED 2026-06-17 to stop API spend — this 10-min tick was the bulk of cost.
+// To resume: set CHOREOGRAPHER_PAUSED=false in Vercel env (or flip this default) and redeploy.
+const PAUSED = process.env.CHOREOGRAPHER_PAUSED !== 'false';
+
 // The attention-choreographer tick. Hit by the 10-min external cron (cron-job.org)
 // once cut over from check-goals. ?dryRun=1 computes the decision without sending.
 export async function GET(request: Request) {
+  if (PAUSED) {
+    return NextResponse.json({ success: true, paused: true, results: [] });
+  }
+
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = request.headers.get('Authorization');
