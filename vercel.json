@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/scribe-compact",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/daily-prompt",
+      "schedule": "0 12 * * *"
     }
   ],
   "functions": {

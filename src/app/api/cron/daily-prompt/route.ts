@@ -5,6 +5,13 @@ import { sendSMS } from '@/lib/twilio';
 
 const anthropic = new Anthropic();
 
+// Vercel Cron invokes routes with a GET request (and auto-attaches the
+// `Authorization: Bearer ${CRON_SECRET}` header). Delegate to the POST handler
+// so the same scheduler can be driven by Vercel Cron, cron-job.org, or a manual POST.
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   try {
     const cronSecret = process.env.CRON_SECRET;
